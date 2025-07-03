@@ -94,7 +94,7 @@ def main():
                 elif msg['type'] == 'vehicle':
                     # Optionally plot vehicle trajectories as well
                     pass
-            # Plot sensor positions
+            # Plot sensor positions and latest fused position
             ax1.clear()
             ax1.set_title('Sensor Positions')
             ax1.set_xlabel('X')
@@ -104,23 +104,29 @@ def main():
             for name, points in sensor_history.items():
                 xs, ys = zip(*points) if points else ([], [])
                 ax1.plot(xs, ys, marker='o', label=name, color=get_color(name))
-            ax1.legend()
-            # Plot fused position
+            # Compute and store fused position on every loop if possible
             sensor_msgs = [msg for msg in last_data.values() if msg['type'] == 'sensor']
             if sensor_msgs:
                 fused = fusion_app.fuse_positions(sensor_msgs)
                 if fused:
                     fused_history.append(fused)
+            # Plot latest fused position as a black star
+            if fused_history:
+                fx, fy = fused_history[-1]
+                ax1.plot(fx, fy, marker='*', color='black', markersize=14, label='Fused')
+            ax1.legend()
+
+            # Plot fused position trajectory (X vs Y)
             ax2.clear()
-            ax2.set_title('Fused Position Over Time')
-            ax2.set_xlabel('Time Step')
-            ax2.set_ylabel('Fused X, Y')
+            ax2.set_title('Fused Position Trajectory')
+            ax2.set_xlabel('Fused X')
+            ax2.set_ylabel('Fused Y')
             ax2.set_xlim(-12, 12)
             ax2.set_ylim(-12, 12)
             if fused_history:
                 xs, ys = zip(*fused_history)
-                ax2.plot(xs, label='Fused_alg1 X', color='black', linestyle='-')
-                ax2.plot(ys, label='Fused_alg1 Y', color='black', linestyle='--')
+                # print(f"[DEBUG] Plotting {len(xs)} fused points")
+                ax2.plot(xs, ys, marker='*', color='black', label='Fused Trajectory')
                 ax2.legend()
             plt.pause(args.interval)
             step += 1

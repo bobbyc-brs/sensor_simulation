@@ -18,9 +18,7 @@ def parse_vehicle_msg(msg):
     }
 
 def main():
-    parser = argparse.ArgumentParser(description="Noisy Sensor: Listens to vehicle, adds noise, rebroadcasts.")
-    parser.add_argument('--listen_port', type=int, required=True, help='UDP port to listen for vehicle position')
-    parser.add_argument('--broadcast_port', type=int, required=True, help='UDP port to broadcast noisy position')
+    parser = argparse.ArgumentParser(description="Noisy Sensor: Listens to vehicle multicast, adds noise, rebroadcasts to sensor multicast.")
     parser.add_argument('--noise_std', type=float, default=0.5, help='Stddev of Gaussian noise (meters)')
     parser.add_argument('--interval', type=float, default=0.1, help='Broadcast interval (default: 0.1s)')
     parser.add_argument('--name', type=str, default='sensor1', help='Sensor name/id')
@@ -38,7 +36,7 @@ def main():
     send_sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 1)
     send_addr = (SENSOR_MCAST_GRP, SENSOR_MCAST_PORT)
 
-    print(f"Listening for vehicle on UDP {args.listen_port}, broadcasting noisy data on UDP {args.broadcast_port}")
+    print(f"Listening for vehicle messages on multicast {VEHICLE_MCAST_GRP}:{VEHICLE_MCAST_PORT}, broadcasting noisy data to multicast {SENSOR_MCAST_GRP}:{SENSOR_MCAST_PORT}")
 
     while True:
         try:

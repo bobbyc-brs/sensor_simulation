@@ -20,7 +20,7 @@ README.md           # Project overview and usage
 ## Usage
 
 ### Part 1: Simulation Manager (Recommended)
-The simulation manager is the main entry point for running the full sensor fusion simulation. It launches all vehicles, sensors, the fusion app, and the visualization app by default.
+The simulation manager is the main entry point for running the full sensor fusion simulation. It launches all vehicles, sensors, the fusion app, and the visualization app by default, using UDP multicast for all inter-process communication.
 
 **Basic Example:**
 ```bash
@@ -46,40 +46,60 @@ python simulation_manager.py -v 2 -s 3
   python simulation_manager.py -v 2 -s 3 --no-visualize
   ```
 
+All components are launched using Python's module mode (`python -m ...`) from the project root, ensuring correct imports and multicast configuration.
+
 ---
 
 ### Part 2: Running Components Manually (Advanced/Debugging)
 
 #### 2.1 Vehicle Simulator
-Simulate a vehicle moving from P1 to P2, broadcasting position:
+Simulate a vehicle moving from P1 to P2, broadcasting position to the vehicle multicast group:
 ```bash
-python vehicles/vehicle_sim.py --p1 0 0 --p2 10 10 --port 9001 --name vehicle1
+python -m vehicles.vehicle_sim --p1 0 0 --p2 10 10 --name vehicle1
 ```
 
-When using the simulation manager, vehicle paths are automatically generated:
-- Each vehicle starts at a unique position on a circle (evenly spaced)
-- Each vehicle's destination is 'delta' degrees further around the circle from its start
-- The `--delta` argument (default: 135) controls the angular separation between start and end for each vehicle
-
 #### 2.2 Noisy Sensor
-Listen to a vehicle, add noise, rebroadcast on a new port:
+Listen to all vehicles via multicast, add noise, rebroadcast to the sensor multicast group:
 ```bash
-python sensors/noisy_sensor.py --listen_port 9001 --broadcast_port 9101 --noise_std 0.5 --name sensor1
+python -m sensors.noisy_sensor --name sensor1
 ```
 
 #### 2.3 Sensor Fusion
-Fuse all sensor outputs (add more ports for more sensors):
+Fuse all sensor outputs received via multicast:
 ```bash
-python fusion/fusion_app.py --sensor_ports 9101
+python -m fusion.fusion_app
 ```
 
 #### 2.4 Visualization
-Visualize sensor and fused positions in real time:
+Visualize sensor and fused positions in real time (listens to sensor multicast group):
 ```bash
-python visualization/visualizer.py --sensor_ports 9101 9102 9103
+python -m visualization.visualizer
 ```
 
-A separate visualization app (`visualization/visualizer.py`) displays real-time positions of all sensors and the fused position. The simulation manager launches this by default unless you use `-h`, `--headless`, or `--no-visualize`.
+> **Important:** All commands above must be run from the project root directory (`/home/bobbyc/Projects/Sensors`) to ensure correct imports and multicast configuration.
+
+---
+
+### Multicast Architecture
+
+- **Vehicle → Sensor:**
+  - Vehicles broadcast to `VEHICLE_MCAST_GRP:VEHICLE_MCAST_PORT` (see `multicast_config.py`)
+  - Only sensors listen on this group/port
+- **Sensor → Fusion/Visualization:**
+  - Sensors broadcast to `SENSOR_MCAST_GRP:SENSOR_MCAST_PORT`
+  - Only fusion and visualization apps listen on this group/port
+
+This ensures each stage only receives the data it is supposed to, preventing "cheating" or cross-stage eavesdropping.
+
+---
+
+### Troubleshooting
+
+- **ModuleNotFoundError: No module named 'multicast_config'**
+  - Make sure you are running all commands from the project root (`/home/bobbyc/Projects/Sensors`)
+  - Always use `python -m ...` (module mode), not `python script.py`, for all components
+
+A separate visualization app (`visualization/visualizer.py`) displays real-time positions of all sensors and the fused position. The simulation manager launches this by default unless you use `--headless` or `--no-visualize`.
 
 - Sensor positions are color-coded and labeled by name.
 - Fused position is plotted as `Fused_alg1`.
@@ -87,7 +107,7 @@ A separate visualization app (`visualization/visualizer.py`) displays real-time 
 
 To run the visualizer manually:
 ```bash
-python -m visualization.visualizer --sensor_ports <sensor_port1> [<sensor_port2> ...]
+python -m visualization.visualizer
 ```
 To disable visualization when running the simulation manager, use:
 ```bash

@@ -74,7 +74,7 @@ def main():
     t.start()
     threads = [t]
 
-    print(f"Listening for sensor messages on multicast group {MCAST_GRP}:{MCAST_PORT}")
+    print(f"Listening for sensor messages on multicast group {SENSOR_MCAST_GRP}:{SENSOR_MCAST_PORT}")
     last_data = {}  # sensor name -> latest msg
     try:
         while True:

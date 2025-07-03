@@ -5,6 +5,8 @@ import math
 import signal
 import sys
 
+from multicast_config import VEHICLE_MCAST_GRP, VEHICLE_MCAST_PORT
+
 def interpolate(p1, p2, t):
     return (
         p1[0] + (p2[0] - p1[0]) * t,

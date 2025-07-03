@@ -9,24 +9,20 @@ SENSOR_BASE_PORT = 9101
 
 processes = []
 
-def launch_vehicle(idx, p1, p2, port, name):
-    cmd = [sys.executable, 'vehicles/vehicle_sim.py',
+def launch_vehicle(idx, p1, p2, name):
+    cmd = [sys.executable, '-m', 'vehicles.vehicle_sim',
            '--p1', str(p1[0]), str(p1[1]),
            '--p2', str(p2[0]), str(p2[1]),
-           '--port', str(port),
            '--name', name]
     return subprocess.Popen(cmd)
 
-def launch_sensor(idx, listen_port, broadcast_port, name):
-    cmd = [sys.executable, 'sensors/noisy_sensor.py',
-           '--listen_port', str(listen_port),
-           '--broadcast_port', str(broadcast_port),
+def launch_sensor(idx, name):
+    cmd = [sys.executable, '-m', 'sensors.noisy_sensor',
            '--name', name]
     return subprocess.Popen(cmd)
 
-def launch_fusion(sensor_ports):
-    ports = [str(p) for p in sensor_ports]
-    cmd = [sys.executable, 'fusion/fusion_app.py', '--sensor_ports'] + ports
+def launch_fusion():
+    cmd = [sys.executable, '-m', 'fusion.fusion_app']
     return subprocess.Popen(cmd)
 
 def stop_all():
@@ -70,46 +66,37 @@ def main():
     print(f"Launching {num_vehicles} vehicles and {num_sensors} sensors...")
 
     # Launch vehicles
-    vehicle_ports = []
     vehicle_info = []
     for i, (p1, p2) in enumerate(vehicle_paths):
-        port = VEHICLE_BASE_PORT + i
-        vehicle_ports.append(port)
         name = f"vehicle{i+1}"
-        p = launch_vehicle(i, p1, p2, port, name)
+        p = launch_vehicle(i, p1, p2, name)
         processes.append(p)
         vehicle_info.append({'proc': p, 'name': name, 'type': 'vehicle', 'idx': i})
-        print(f"  Vehicle {name} on port {port} from {p1} to {p2}")
+        print(f"  Vehicle {name} from {p1} to {p2} (multicast)")
 
-    # Launch sensors (each sensor listens to a vehicle)
-    sensor_ports = []
+    # Launch sensors (each sensor listens to all vehicles via multicast)
     sensor_info = []
     for i in range(num_sensors):
-        listen_port = vehicle_ports[i % num_vehicles]
-        broadcast_port = SENSOR_BASE_PORT + i
-        sensor_ports.append(broadcast_port)
         name = f"sensor{i+1}"
-        p = launch_sensor(i, listen_port, broadcast_port, name)
+        p = launch_sensor(i, name)
         processes.append(p)
-        sensor_info.append({'proc': p, 'name': name, 'type': 'sensor', 'idx': i, 'listen_port': listen_port, 'broadcast_port': broadcast_port})
-        print(f"  Sensor {name} listens to vehicle port {listen_port}, broadcasts on {broadcast_port}")
+        sensor_info.append({'proc': p, 'name': name, 'type': 'sensor', 'idx': i})
+        print(f"  Sensor {name} (multicast)")
 
     # Launch fusion app
-    p = launch_fusion(sensor_ports)
+    p = launch_fusion()
     processes.append(p)
     fusion_info = {'proc': p, 'name': 'fusion', 'type': 'fusion'}
-    print(f"  Fusion app listening to sensor ports: {sensor_ports}")
+    print(f"  Fusion app (multicast)")
 
     # Launch visualization app unless headless
     visualizer_proc = None
     if not args.headless:
         try:
-            import sys
-            vis_ports = [str(p) for p in sensor_ports]
-            cmd = [sys.executable, '-m', 'visualization.visualizer', '--sensor_ports'] + vis_ports
+            cmd = [sys.executable, '-m', 'visualization.visualizer']
             visualizer_proc = subprocess.Popen(cmd)
             processes.append(visualizer_proc)
-            print(f"  Visualization app started for sensor ports: {sensor_ports}")
+            print(f"  Visualization app started (multicast)")
         except Exception as e:
             print(f"[WARN] Could not start visualization app: {e}")
 
