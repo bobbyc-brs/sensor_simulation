@@ -45,7 +45,7 @@ def main():
     parser.add_argument('-v', '--num-vehicles', type=int, default=1, help='Number of vehicles')
     parser.add_argument('-s', '--num-sensors', type=int, default=1, help='Number of sensors')
     parser.add_argument('--delta', type=float, default=135.0, help='Delta angle (degrees) between start and end for each vehicle (default: 135)')
-    parser.add_argument('--headless', '--no-visualize', action='store_true', help='Do not launch the visualization app')
+    parser.add_argument('-h','--headless', '--no-visualize', action='store_true', help='Do not launch the visualization app')
     args = parser.parse_args()
 
     num_vehicles = args.num_vehicles
@@ -106,7 +106,7 @@ def main():
         try:
             import sys
             vis_ports = [str(p) for p in sensor_ports]
-            cmd = [sys.executable, 'visualization/visualizer.py', '--sensor_ports'] + vis_ports
+            cmd = [sys.executable, '-m', 'visualization.visualizer', '--sensor_ports'] + vis_ports
             visualizer_proc = subprocess.Popen(cmd)
             processes.append(visualizer_proc)
             print(f"  Visualization app started for sensor ports: {sensor_ports}")
