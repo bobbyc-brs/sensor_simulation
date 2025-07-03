@@ -45,7 +45,7 @@ def main():
     parser.add_argument('-v', '--num-vehicles', type=int, default=1, help='Number of vehicles')
     parser.add_argument('-s', '--num-sensors', type=int, default=1, help='Number of sensors')
     parser.add_argument('--delta', type=float, default=135.0, help='Delta angle (degrees) between start and end for each vehicle (default: 135)')
-    parser.add_argument('-h','--headless', '--no-visualize', action='store_true', help='Do not launch the visualization app')
+    parser.add_argument('--headless', '--no-visualize', action='store_true', help='Do not launch the visualization app (use --headless or --no-visualize)')
     args = parser.parse_args()
 
     num_vehicles = args.num_vehicles
