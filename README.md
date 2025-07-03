@@ -18,7 +18,37 @@ README.md           # Project overview and usage
 ```
 
 ## Usage
-### 1. Vehicle Simulator
+
+### Part 1: Simulation Manager (Recommended)
+The simulation manager is the main entry point for running the full sensor fusion simulation. It launches all vehicles, sensors, the fusion app, and the visualization app by default.
+
+**Basic Example:**
+```bash
+python simulation_manager.py -v 2 -s 3
+```
+
+- `-v`, `--num-vehicles`: Number of vehicles to simulate
+- `-s`, `--num-sensors`: Number of noisy sensors
+- `--delta`: Angular separation (degrees) between vehicle start and end points (default: 135)
+- `-h`, `--headless`, `--no-visualize`: Do not launch the visualization app (default: visualization is launched)
+
+**Examples:**
+- Change vehicle path angle:
+  ```bash
+  python simulation_manager.py -v 2 -s 3 --delta 90
+  ```
+- Run without visualization:
+  ```bash
+  python simulation_manager.py -v 2 -s 3 -h
+  # or
+  python simulation_manager.py -v 2 -s 3 --headless
+  ```
+
+---
+
+### Part 2: Running Components Manually (Advanced/Debugging)
+
+#### 2.1 Vehicle Simulator
 Simulate a vehicle moving from P1 to P2, broadcasting position:
 ```bash
 python vehicles/vehicle_sim.py --p1 0 0 --p2 10 10 --port 9001 --name vehicle1
@@ -29,30 +59,40 @@ When using the simulation manager, vehicle paths are automatically generated:
 - Each vehicle's destination is 'delta' degrees further around the circle from its start
 - The `--delta` argument (default: 135) controls the angular separation between start and end for each vehicle
 
-### 2. Noisy Sensor
+#### 2.2 Noisy Sensor
 Listen to a vehicle, add noise, rebroadcast on a new port:
 ```bash
 python sensors/noisy_sensor.py --listen_port 9001 --broadcast_port 9101 --noise_std 0.5 --name sensor1
 ```
 
-### 3. Sensor Fusion
+#### 2.3 Sensor Fusion
 Fuse all sensor outputs (add more ports for more sensors):
 ```bash
 python fusion/fusion_app.py --sensor_ports 9101
 ```
 
-### 4. Visualization
+#### 2.4 Visualization
 Visualize sensor and fused positions in real time:
 ```bash
 python visualization/visualizer.py --sensor_ports 9101 9102 9103
 ```
 
-- Listens to the same UDP ports as the fusion app to receive sensor data.
-- Imports and uses the fusion logic from `fusion/fusion_app.py` to compute and plot the fused position in real time.
-- Uses matplotlib to display:
-  - One plot showing all sensor positions (with noise, color-coded by sensor)
-  - Another plot showing the fused position over time.
-- The visualizer does not interfere with the running fusion app; both can run in parallel.
+A separate visualization app (`visualization/visualizer.py`) displays real-time positions of all sensors and the fused position. The simulation manager launches this by default unless you use `-h`, `--headless`, or `--no-visualize`.
+
+- Sensor positions are color-coded and labeled by name.
+- Fused position is plotted as `Fused_alg1`.
+- Axes are scaled to match the simulation area (radius=10, axes: -12 to 12).
+
+To run the visualizer manually:
+```bash
+python -m visualization.visualizer --sensor_ports <sensor_port1> [<sensor_port2> ...]
+```
+To disable visualization when running the simulation manager, use:
+```bash
+python simulation_manager.py -h
+# or
+python simulation_manager.py --headless
+```
 
 ## Extending
 - Add more vehicles (different ports, names)
