@@ -43,11 +43,12 @@ def main():
     last_data = {}  # port -> latest msg
 
     # Assign a color and name for each sensor
-    import matplotlib.cm as cm
-    import matplotlib.colors as mcolors
+    import matplotlib.colormaps as mcolormaps
     sensor_ports = args.sensor_ports
-    color_map = cm.get_cmap('tab10', len(sensor_ports))
-    port_to_color = {port: color_map(i) for i, port in enumerate(sensor_ports)}
+    color_map = mcolormaps.get_cmap('tab10')
+    # Evenly space colors for each port
+    port_colors = [color_map(i / max(1, len(sensor_ports)-1)) for i in range(len(sensor_ports))]
+    port_to_color = {port: port_colors[i] for i, port in enumerate(sensor_ports)}
     port_to_name = {port: None for port in sensor_ports}  # Will be filled in as data arrives
 
     plt.ion()
@@ -90,7 +91,7 @@ def main():
             ax2.set_title('Fused Position Over Time')
             ax2.set_xlabel('Time Step')
             ax2.set_ylabel('Fused X, Y')
-            ax2.set_lim(-12, 12)
+            ax2.set_xlim(-12, 12)
             ax2.set_ylim(-12, 12)
             if fused_history:
                 xs, ys = zip(*fused_history)
