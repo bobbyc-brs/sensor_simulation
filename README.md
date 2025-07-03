@@ -30,7 +30,9 @@ python simulation_manager.py -v 2 -s 3
 - `-v`, `--num-vehicles`: Number of vehicles to simulate
 - `-s`, `--num-sensors`: Number of noisy sensors
 - `--delta`: Angular separation (degrees) between vehicle start and end points (default: 135)
-- `-h`, `--headless`, `--no-visualize`: Do not launch the visualization app (default: visualization is launched)
+- `--headless`, `--no-visualize`: Do not launch the visualization app (default: visualization is launched)
+
+> **Note:** The `-h` flag is reserved for help and cannot be used for headless mode. Use `--headless` or `--no-visualize` instead.
 
 **Examples:**
 - Change vehicle path angle:
@@ -39,9 +41,9 @@ python simulation_manager.py -v 2 -s 3
   ```
 - Run without visualization:
   ```bash
-  python simulation_manager.py -v 2 -s 3 -h
-  # or
   python simulation_manager.py -v 2 -s 3 --headless
+  # or
+  python simulation_manager.py -v 2 -s 3 --no-visualize
   ```
 
 ---
@@ -89,9 +91,9 @@ python -m visualization.visualizer --sensor_ports <sensor_port1> [<sensor_port2>
 ```
 To disable visualization when running the simulation manager, use:
 ```bash
-python simulation_manager.py -h
-# or
 python simulation_manager.py --headless
+# or
+python simulation_manager.py --no-visualize
 ```
 
 ## Extending
