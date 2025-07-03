@@ -42,6 +42,14 @@ def main():
     fused_history = []  # list of (x, y)
     last_data = {}  # port -> latest msg
 
+    # Assign a color and name for each sensor
+    import matplotlib.cm as cm
+    import matplotlib.colors as mcolors
+    sensor_ports = args.sensor_ports
+    color_map = cm.get_cmap('tab10', len(sensor_ports))
+    port_to_color = {port: color_map(i) for i, port in enumerate(sensor_ports)}
+    port_to_name = {port: None for port in sensor_ports}  # Will be filled in as data arrives
+
     plt.ion()
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6))
     ax1.set_title('Sensor Positions')
@@ -64,9 +72,14 @@ def main():
             ax1.set_title('Sensor Positions')
             ax1.set_xlabel('X')
             ax1.set_ylabel('Y')
+            ax1.set_xlim(-12, 12)
+            ax1.set_ylim(-12, 12)
             for port, points in sensor_history.items():
                 xs, ys = zip(*points) if points else ([], [])
-                ax1.plot(xs, ys, marker='o', label=f'Sensor {port}')
+                # Try to get sensor name from last_data if available
+                name = last_data[port]['name'] if port in last_data and 'name' in last_data[port] else f'Sensor {port}'
+                port_to_name[port] = name
+                ax1.plot(xs, ys, marker='o', label=name, color=port_to_color[port])
             ax1.legend()
             # Plot fused position
             if last_data:
@@ -77,10 +90,12 @@ def main():
             ax2.set_title('Fused Position Over Time')
             ax2.set_xlabel('Time Step')
             ax2.set_ylabel('Fused X, Y')
+            ax2.set_lim(-12, 12)
+            ax2.set_ylim(-12, 12)
             if fused_history:
                 xs, ys = zip(*fused_history)
-                ax2.plot(xs, label='Fused X')
-                ax2.plot(ys, label='Fused Y')
+                ax2.plot(xs, label='Fused_alg1 X', color='black', linestyle='-')
+                ax2.plot(ys, label='Fused_alg1 Y', color='black', linestyle='--')
                 ax2.legend()
             plt.pause(args.interval)
             step += 1
