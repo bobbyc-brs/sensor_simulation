@@ -24,6 +24,11 @@ Simulate a vehicle moving from P1 to P2, broadcasting position:
 python vehicles/vehicle_sim.py --p1 0 0 --p2 10 10 --port 9001 --name vehicle1
 ```
 
+When using the simulation manager, vehicle paths are automatically generated:
+- Each vehicle starts at a unique position on a circle (evenly spaced)
+- Each vehicle's destination is 'delta' degrees further around the circle from its start
+- The `--delta` argument (default: 135) controls the angular separation between start and end for each vehicle
+
 ### 2. Noisy Sensor
 Listen to a vehicle, add noise, rebroadcast on a new port:
 ```bash
@@ -35,6 +40,19 @@ Fuse all sensor outputs (add more ports for more sensors):
 ```bash
 python fusion/fusion_app.py --sensor_ports 9101
 ```
+
+### 4. Visualization
+Visualize sensor and fused positions in real time:
+```bash
+python visualization/visualizer.py --sensor_ports 9101 9102 9103
+```
+
+- Listens to the same UDP ports as the fusion app to receive sensor data.
+- Imports and uses the fusion logic from `fusion/fusion_app.py` to compute and plot the fused position in real time.
+- Uses matplotlib to display:
+  - One plot showing all sensor positions (with noise, color-coded by sensor)
+  - Another plot showing the fused position over time.
+- The visualizer does not interfere with the running fusion app; both can run in parallel.
 
 ## Extending
 - Add more vehicles (different ports, names)
