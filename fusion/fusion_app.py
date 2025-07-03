@@ -1,8 +1,10 @@
 import socket
+import struct
 import argparse
 import threading
 import queue
 import time
+from multicast_config import SENSOR_MCAST_GRP, SENSOR_MCAST_PORT
 
 def parse_sensor_msg(msg):
     # Format: name,x,y,t,noise_std
@@ -17,16 +19,32 @@ def parse_sensor_msg(msg):
         'noise_std': float(parts[4]),
     }
 
-def sensor_listener(port, q, stop_event):
-    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    sock.bind(('127.0.0.1', port))
+def sensor_multicast_listener(q, stop_event):
+    sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    sock.bind(('', SENSOR_MCAST_PORT))
+    mreq = struct.pack('4sl', socket.inet_aton(SENSOR_MCAST_GRP), socket.INADDR_ANY)
+    sock.setsockopt(socket.IPPROTO_IP, socket.IP_ADD_MEMBERSHIP, mreq)
     sock.settimeout(0.2)
     while not stop_event.is_set():
         try:
             data, _ = sock.recvfrom(1024)
-            msg = parse_sensor_msg(data)
-            if msg:
-                q.put((port, msg))
+            try:
+                text = data.decode()
+                parts = text.strip().split(',')
+                if len(parts) < 6 or parts[0] != 'sensor':
+                    continue
+                # Parse sensor message: sensor,name,x,y,t,noise_std
+                msg = {
+                    'name': parts[1],
+                    'x': float(parts[2]),
+                    'y': float(parts[3]),
+                    't': float(parts[4]),
+                    'noise_std': float(parts[5])
+                }
+                q.put((parts[1], msg))
+            except Exception:
+                continue
         except socket.timeout:
             continue
     sock.close()
@@ -46,21 +64,18 @@ def fuse_positions(sensor_data):
     return (weighted_sum_x / weight_total, weighted_sum_y / weight_total)
 
 def main():
-    parser = argparse.ArgumentParser(description="Sensor Fusion App: Fuses positions from multiple sensors.")
-    parser.add_argument('--sensor_ports', type=int, nargs='+', required=True, help='UDP ports to listen to sensors')
+    parser = argparse.ArgumentParser(description="Sensor Fusion App: Fuses positions from multiple sensors (UDP multicast).")
     parser.add_argument('--interval', type=float, default=0.1, help='Fusion interval (default: 0.1s)')
     args = parser.parse_args()
 
     q = queue.Queue()
     stop_event = threading.Event()
-    threads = []
-    for port in args.sensor_ports:
-        t = threading.Thread(target=sensor_listener, args=(port, q, stop_event), daemon=True)
-        t.start()
-        threads.append(t)
+    t = threading.Thread(target=sensor_multicast_listener, args=(q, stop_event), daemon=True)
+    t.start()
+    threads = [t]
 
-    print(f"Listening to sensors on ports: {args.sensor_ports}")
-    last_data = {}  # port -> latest msg
+    print(f"Listening for sensor messages on multicast group {MCAST_GRP}:{MCAST_PORT}")
+    last_data = {}  # sensor name -> latest msg
     try:
         while True:
             start = time.time()
