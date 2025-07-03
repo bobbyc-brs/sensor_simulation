@@ -25,6 +25,7 @@ def main():
     args = parser.parse_args()
 
     recv_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    recv_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     recv_sock.bind(('127.0.0.1', args.listen_port))
     recv_sock.settimeout(args.interval)
     send_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
