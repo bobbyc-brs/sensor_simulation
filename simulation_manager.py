@@ -48,19 +48,32 @@ def stop_all():
 def main():
     parser = argparse.ArgumentParser(description="Simulation Manager for sensor_simulation")
     parser.add_argument('-v', '--num-vehicles', type=int, default=1, help='Number of vehicles')
-    parser.add_argument('-s', '--num-sensors', type=int, default=1, help='Number of sensors')
-    parser.add_argument('--sensor-type', type=str, choices=['noisy','adas','tacan','all'], default='noisy', help='Type of sensor to launch (default: noisy)')
-    parser.add_argument('--tacan-x', type=float, nargs='*', help='TACAN radar x positions (for each TACAN sensor)')
-    parser.add_argument('--tacan-y', type=float, nargs='*', help='TACAN radar y positions (for each TACAN sensor)')
+    parser.add_argument('-s', '--num-sensors', type=int, help='Number of sensors (default: 3; one each: noisy, adas, tacan)')
+    parser.add_argument('--sensor-type', type=str, nargs=2, action='append', metavar=('IDX','TYPE'), help='Specify sensor type for a sensor index: --sensor-type <idx> <type> (repeatable, types: noisy, adas, tacan)')
+    parser.add_argument('--tacan-pos', type=float, nargs=3, action='append', metavar=('IDX','X','Y'), help='TACAN sensor index and position: --tacan-pos <idx> <x> <y> (repeatable)')
     parser.add_argument('--delta', type=float, default=135.0, help='Delta angle (degrees) between start and end for each vehicle (default: 135)')
     parser.add_argument('--headless', '--no-visualize', action='store_true', help='Do not launch the visualization app (use --headless or --no-visualize)')
     args = parser.parse_args()
 
     num_vehicles = args.num_vehicles
-    num_sensors = args.num_sensors
-    sensor_type = args.sensor_type
-    tacan_xs = args.tacan_x if args.tacan_x else []
-    tacan_ys = args.tacan_y if args.tacan_y else []
+    # If num_sensors is not specified, create 3 sensors (noisy, adas, tacan)
+    if args.num_sensors is None:
+        num_sensors = 3
+        default_sensor_types = ['noisy', 'adas', 'tacan']
+    else:
+        num_sensors = args.num_sensors
+        default_sensor_types = []
+    # Build a map of sensor index (1-based) to type
+    sensor_type_map = {}
+    if args.sensor_type:
+        for entry in args.sensor_type:
+            idx, typ = entry
+            sensor_type_map[int(idx)] = typ.lower()
+    tacan_pos_map = {}
+    if args.tacan_pos:
+        for entry in args.tacan_pos:
+            idx, x, y = map(float, entry)
+            tacan_pos_map[int(idx)] = (x, y)
     delta_deg = args.delta
 
     # Place vehicles on a circle:
@@ -91,26 +104,22 @@ def main():
 
     # Launch sensors (each sensor listens to all vehicles via multicast)
     sensor_info = []
+    # Prepare per-sensor (1-based) types and tacan positions
     sensor_types_to_launch = []
-    if sensor_type == 'all':
-        # Launch equal number of each type if possible
-        n_each = max(1, num_sensors // 3)
-        sensor_types_to_launch = (
-            [('noisy', None, None)] * n_each +
-            [('adas', None, None)] * n_each +
-            [('tacan', tacan_xs[i] if i < len(tacan_xs) else 0.0, tacan_ys[i] if i < len(tacan_ys) else 0.0) for i in range(n_each)]
-        )
-        # If num_sensors is not divisible by 3, fill with noisy
-        while len(sensor_types_to_launch) < num_sensors:
-            sensor_types_to_launch.append(('noisy', None, None))
-    else:
-        for i in range(num_sensors):
-            if sensor_type == 'tacan':
-                x = tacan_xs[i] if i < len(tacan_xs) else 0.0
-                y = tacan_ys[i] if i < len(tacan_ys) else 0.0
-                sensor_types_to_launch.append(('tacan', x, y))
-            else:
-                sensor_types_to_launch.append((sensor_type, None, None))
+    for i in range(num_sensors):
+        idx = i+1
+        # Use CLI override if present, else use default_sensor_types (if set), else noisy
+        if idx in sensor_type_map:
+            stype = sensor_type_map[idx]
+        elif default_sensor_types:
+            stype = default_sensor_types[i] if i < len(default_sensor_types) else 'noisy'
+        else:
+            stype = 'noisy'
+        if stype == 'tacan':
+            x, y = tacan_pos_map.get(idx, (0.0, 0.0))
+        else:
+            x, y = None, None
+        sensor_types_to_launch.append((stype, x, y))
 
     for i, (stype, tx, ty) in enumerate(sensor_types_to_launch):
         name = f"sensor{i+1}"

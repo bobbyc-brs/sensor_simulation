@@ -24,17 +24,35 @@ The simulation manager is the main entry point for running the full sensor fusio
 
 **Basic Example:**
 ```bash
+python simulation_manager.py
+```
+
+```bash
 python simulation_manager.py -v 2 -s 3
 ```
 
-- `-v`, `--num-vehicles`: Number of vehicles to simulate
-- `-s`, `--num-sensors`: Number of noisy sensors
+- `-v`, `--num-vehicles`: Number of vehicles to simulate (default: 1)
+- `-s`, `--num-sensors`: Number of sensors to simulate (default: one of each type)
+- `--sensor-type <idx> <type>`: (Repeatable) Specify the type for a sensor index (1-based). Types: `noisy`, `adas`, `tacan`. Example: `--sensor-type 1 tacan --sensor-type 2 adas --sensor-type 3 tacan`
+- `--tacan-pos <idx> <x> <y>`: (Repeatable) Specify the position of a TACAN sensor by its index (1-based), e.g. `--tacan-pos 1 0 0`.
 - `--delta`: Angular separation (degrees) between vehicle start and end points (default: 135)
 - `--headless`, `--no-visualize`: Do not launch the visualization app (default: visualization is launched)
 
 > **Note:** The `-h` flag is reserved for help and cannot be used for headless mode. Use `--headless` or `--no-visualize` instead.
 
-**Examples:**
+#### Sensor Types
+- **noisy**: Standard noisy sensor (default for unspecified sensors)
+- **adas**: ADAS sensor (publishes vehicle info every ~15s, with random jitter)
+- **tacan**: TACAN sensor (requires position, simulates a rotating radar dish)
+
+---
+
+### Per-Sensor Configuration
+You can specify the type of each sensor individually using `--sensor-type <idx> <type>`. Any sensor index not specified will default to `noisy`.
+
+You can also assign positions to TACAN sensors using `--tacan-pos <idx> <x> <y>`.
+
+**Vehicle Examples:**
 - Change vehicle path angle:
   ```bash
   python simulation_manager.py -v 2 -s 3 --delta 90
@@ -44,6 +62,37 @@ python simulation_manager.py -v 2 -s 3
   python simulation_manager.py -v 2 -s 3 --headless
   # or
   python simulation_manager.py -v 2 -s 3 --no-visualize
+  ```
+
+**Sensor Examples:**
+- Launch 5 sensors: sensor 1 is TACAN at (0,0), sensor 2 is ADAS, sensor 3 is TACAN at (10,10), others default to noisy:
+  ```bash
+  python simulation_manager.py -s 5 \
+    --sensor-type 1 tacan --tacan-pos 1 0 0 \
+    --sensor-type 2 adas \
+    --sensor-type 3 tacan --tacan-pos 3 10 10
+  ```
+- Launch 4 sensors: sensor 2 is ADAS, sensor 4 is TACAN at (5,5):
+  ```bash
+  python simulation_manager.py -s 4 \
+    --sensor-type 2 adas \
+    --sensor-type 4 tacan --tacan-pos 4 5 5
+  ```
+- Launch 3 sensors, all default to noisy:
+  ```bash
+  python simulation_manager.py -s 3
+  ```
+- Launch 2 vehicles and 4 sensors, mixing types:
+  ```bash
+  python simulation_manager.py -v 2 -s 4 \
+    --sensor-type 1 tacan --tacan-pos 1 0 0 \
+    --sensor-type 2 adas
+  ```
+- Launch 6 sensors, only sensors 2 and 4 are TACAN at different positions:
+  ```bash
+  python simulation_manager.py -s 6 \
+    --sensor-type 2 tacan --tacan-pos 2 2 2 \
+    --sensor-type 4 tacan --tacan-pos 4 8 8
   ```
 
 All components are launched using Python's module mode (`python -m ...`) from the project root, ensuring correct imports and multicast configuration.
