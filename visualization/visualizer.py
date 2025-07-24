@@ -103,7 +103,7 @@ def main():
             ax1.set_ylim(-12, 12)
             for name, points in sensor_history.items():
                 xs, ys = zip(*points) if points else ([], [])
-                ax1.plot(xs, ys, marker='o', label=name, color=get_color(name))
+                ax1.plot(xs, ys, marker='o', linestyle='None', label=name, color=get_color(name))
             # Compute and store fused position on every loop if possible
             sensor_msgs = [msg for msg in last_data.values() if msg['type'] == 'sensor']
             if sensor_msgs:
@@ -113,7 +113,7 @@ def main():
             # Plot latest fused position as a black star
             if fused_history:
                 fx, fy = fused_history[-1]
-                ax1.plot(fx, fy, marker='*', color='black', markersize=14, label='Fused')
+                ax1.plot(fx, fy, marker='*', linestyle='None', color='black', markersize=14, label='Fused')
             ax1.legend()
 
             # Plot fused position trajectory (X vs Y)
@@ -126,7 +126,7 @@ def main():
             if fused_history:
                 xs, ys = zip(*fused_history)
                 # print(f"[DEBUG] Plotting {len(xs)} fused points")
-                ax2.plot(xs, ys, marker='*', color='black', label='Fused Trajectory')
+                ax2.plot(xs, ys, marker='*', linestyle='None', color='black', label='Fused Trajectory')
                 ax2.legend()
             plt.pause(args.interval)
             step += 1
