@@ -56,19 +56,20 @@ def main():
     args = parser.parse_args()
 
     num_vehicles = args.num_vehicles
-    # If num_sensors is not specified, create 3 sensors (noisy, adas, tacan)
+    # If num_sensors is not specified, create 3 sensors (noisy, adas, tacan), else all noisy
     if args.num_sensors is None:
         num_sensors = 3
-        default_sensor_types = ['noisy', 'adas', 'tacan']
+        sensor_types = ['noisy', 'adas', 'tacan']
     else:
         num_sensors = args.num_sensors
-        default_sensor_types = []
-    # Build a map of sensor index (1-based) to type
-    sensor_type_map = {}
+        sensor_types = ['noisy'] * num_sensors
+    # Override with CLI --sensor-type if present
     if args.sensor_type:
         for entry in args.sensor_type:
             idx, typ = entry
-            sensor_type_map[int(idx)] = typ.lower()
+            idx = int(idx)
+            if 1 <= idx <= num_sensors:
+                sensor_types[idx-1] = typ.lower()
     tacan_pos_map = {}
     if args.tacan_pos:
         for entry in args.tacan_pos:
@@ -106,15 +107,8 @@ def main():
     sensor_info = []
     # Prepare per-sensor (1-based) types and tacan positions
     sensor_types_to_launch = []
-    for i in range(num_sensors):
+    for i, stype in enumerate(sensor_types):
         idx = i+1
-        # Use CLI override if present, else use default_sensor_types (if set), else noisy
-        if idx in sensor_type_map:
-            stype = sensor_type_map[idx]
-        elif default_sensor_types:
-            stype = default_sensor_types[i] if i < len(default_sensor_types) else 'noisy'
-        else:
-            stype = 'noisy'
         if stype == 'tacan':
             x, y = tacan_pos_map.get(idx, (0.0, 0.0))
         else:
