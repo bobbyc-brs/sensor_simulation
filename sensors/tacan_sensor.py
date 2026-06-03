@@ -1,9 +1,9 @@
 import socket
 import struct
 import argparse
-import math
 import time
 from multicast_config import VEHICLE_MCAST_GRP, VEHICLE_MCAST_PORT, SENSOR_MCAST_GRP, SENSOR_MCAST_PORT
+from geo.eastern_canada import initial_bearing_deg
 
 def parse_vehicle_msg(msg):
     parts = msg.decode().strip().split(',')
@@ -16,16 +16,20 @@ def parse_vehicle_msg(msg):
         't': float(parts[4]),
     }
 
-def angle_between(x1, y1, x2, y2):
-    return math.degrees(math.atan2(y2 - y1, x2 - x1)) % 360
-
 def main():
     parser = argparse.ArgumentParser(description="TACAN Sensor: Rotating dish radar sensor")
-    parser.add_argument('--radar-x-pos', type=float, required=True, help='Radar base station X position')
-    parser.add_argument('--radar-y-pos', type=float, required=True, help='Radar base station Y position')
+    parser.add_argument('--radar-lat', type=float, help='Radar latitude (decimal degrees)')
+    parser.add_argument('--radar-lon', type=float, help='Radar longitude (decimal degrees)')
+    parser.add_argument('--radar-x-pos', type=float, help='Alias for radar longitude')
+    parser.add_argument('--radar-y-pos', type=float, help='Alias for radar latitude')
     parser.add_argument('--rotation-period', type=float, default=60.0, help='Full rotation period in seconds (default: 60)')
     parser.add_argument('--name', type=str, default='tacan1', help='Sensor name/id')
     args = parser.parse_args()
+
+    radar_lat = args.radar_lat if args.radar_lat is not None else args.radar_y_pos
+    radar_lon = args.radar_lon if args.radar_lon is not None else args.radar_x_pos
+    if radar_lat is None or radar_lon is None:
+        parser.error('TACAN requires --radar-lat and --radar-lon (or legacy --radar-y-pos / --radar-x-pos).')
 
     recv_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
     recv_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -38,7 +42,7 @@ def main():
     send_sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 1)
     send_addr = (SENSOR_MCAST_GRP, SENSOR_MCAST_PORT)
 
-    print(f"TACAN sensor started at ({args.radar_x_pos}, {args.radar_y_pos}). Rotating dish.")
+    print(f"TACAN sensor at lat={radar_lat:.4f}, lon={radar_lon:.4f}. Rotating dish.")
 
     published_this_rotation = set()
     start_time = time.time()
@@ -53,7 +57,7 @@ def main():
             v = parse_vehicle_msg(data)
             if not v:
                 continue
-            veh_angle = angle_between(args.radar_x_pos, args.radar_y_pos, v['x'], v['y'])
+            veh_angle = initial_bearing_deg(radar_lat, radar_lon, v['x'], v['y'])
             veh_id = v['name']
             angle_diff = (veh_angle - dish_angle + 360) % 360
             if angle_diff > 180:

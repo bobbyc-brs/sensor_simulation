@@ -1,177 +1,185 @@
 # sensor_simulation
 
-A modular, extensible sensor-fusion simulator in Python. Simulate multiple vehicles, noisy sensors, and a fusion node using UDP sockets on localhost.
+A modular sensor-fusion simulator in Python. Aircraft fly great-circle routes between real Eastern Canada airports; sensors add noise and rebroadcast positions; a fusion node estimates the best fix. Processes communicate over UDP multicast on localhost.
 
 ## Features
-- Multiple vehicles, each broadcasting their position
-- Multiple sensors, each listening to a vehicle, adding noise, and rebroadcasting
-- Sensor fusion app that fuses all sensor data into a best estimate
 
-## Directory Structure
-```
-vehicles/           # Vehicle simulators
-sensors/            # Noisy sensor modules
-fusion/             # Sensor fusion application
-requirements.txt    # Python dependencies
-LICENSE             # MIT License
-README.md           # Project overview and usage
-```
+- **Realistic flights** — WGS84 lat/lon, great-circle paths, cruise speed (default 450 kt), climb/cruise/descent altitude
+- **Six airports** — St. John's, Halifax, Quebec City, Montreal, Toronto, Ottawa
+- **Three sensor types** — noisy (Gaussian error in meters), ADAS (~15 s updates), TACAN (rotating dish)
+- **Weighted fusion** — inverse-variance blend using reported noise / sensor type
+- **Live map** — browser UI (default) or optional matplotlib window; time-scale controls to speed up or slow down the sim
 
-## Usage
+## Requirements
 
-### Part 1: Simulation Manager (Recommended)
-The simulation manager is the main entry point for running the full sensor fusion simulation. It launches all vehicles, sensors, the fusion app, and the visualization app by default, using UDP multicast for all inter-process communication.
+- Python 3.10+
+- Dependencies: `pip install -r requirements.txt` (matplotlib for visualization)
 
-**Basic Example:**
+## Quick start
+
+From the project root:
+
 ```bash
+pip install -r requirements.txt
 python simulation_manager.py
 ```
 
+Open **http://127.0.0.1:8765/** in your browser. Use the **time scale** buttons (0.25×–50×) to accelerate or slow the simulation without changing cruise speed.
+
+Run only **one** `simulation_manager.py` at a time. Stop with Ctrl+C before starting again.
+
+## Eastern Canada airports
+
+| ICAO | Airport | Region |
+|------|---------|--------|
+| YYT | St. John's | NL |
+| YHZ | Halifax | NS |
+| YQB | Quebec City | QC |
+| YUL | Montreal | QC |
+| YYZ | Toronto | ON |
+| YOW | Ottawa | ON |
+
+Default routes (by aircraft index): YYT→YYZ, YHZ→YUL, YQB→YYZ, YUL→YOW, YYZ→YHZ, YOW→YHZ.
+
+Static map with airports and routes:
+
 ```bash
-python simulation_manager.py -v 2 -s 3
+python -m geo.plot_airports_map
 ```
 
-- `-v`, `--num-vehicles`: Number of vehicles to simulate (default: 1)
-- `-s`, `--num-sensors`: Number of sensors to simulate (default: one of each type)
-- `--sensor-type <idx> <type>`: (Repeatable) Specify the type for a sensor index (1-based). Types: `noisy`, `adas`, `tacan`. Example: `--sensor-type 1 tacan --sensor-type 2 adas --sensor-type 3 tacan`
-- `--tacan-pos <idx> <x> <y>`: (Repeatable) Specify the position of a TACAN sensor by its index (1-based), e.g. `--tacan-pos 1 0 0`.
-- `--delta`: Angular separation (degrees) between vehicle start and end points (default: 135)
-- `--headless`, `--no-visualize`: Do not launch the visualization app (default: visualization is launched)
+Writes `geo/eastern_canada_airports.png`.
 
-> **Note:** The `-h` flag is reserved for help and cannot be used for headless mode. Use `--headless` or `--no-visualize` instead.
+## Simulation manager
 
-#### Sensor Types
-- **noisy**: Standard noisy sensor (default for unspecified sensors)
-- **adas**: ADAS sensor (publishes vehicle info every ~15s, with random jitter)
-- **tacan**: TACAN sensor (requires position, simulates a rotating radar dish)
-
----
-
-### Per-Sensor Configuration
-You can specify the type of each sensor individually using `--sensor-type <idx> <type>`. Any sensor index not specified will default to `noisy`.
-
-You can also assign positions to TACAN sensors using `--tacan-pos <idx> <x> <y>`.
-
-**Vehicle Examples:**
-- Change vehicle path angle:
-  ```bash
-  python simulation_manager.py -v 2 -s 3 --delta 90
-  ```
-- Run without visualization:
-  ```bash
-  python simulation_manager.py -v 2 -s 3 --headless
-  # or
-  python simulation_manager.py -v 2 -s 3 --no-visualize
-  ```
-
-**Sensor Examples:**
-- Launch 5 sensors: sensor 1 is TACAN at (0,0), sensor 2 is ADAS, sensor 3 is TACAN at (10,10), others default to noisy:
-  ```bash
-  python simulation_manager.py -s 5 \
-    --sensor-type 1 tacan --tacan-pos 1 0 0 \
-    --sensor-type 2 adas \
-    --sensor-type 3 tacan --tacan-pos 3 10 10
-  ```
-- Launch 4 sensors: sensor 2 is ADAS, sensor 4 is TACAN at (5,5):
-  ```bash
-  python simulation_manager.py -s 4 \
-    --sensor-type 2 adas \
-    --sensor-type 4 tacan --tacan-pos 4 5 5
-  ```
-- Launch 3 sensors, all default to noisy:
-  ```bash
-  python simulation_manager.py -s 3
-  ```
-- Launch 2 vehicles and 4 sensors, mixing types:
-  ```bash
-  python simulation_manager.py -v 2 -s 4 \
-    --sensor-type 1 tacan --tacan-pos 1 0 0 \
-    --sensor-type 2 adas
-  ```
-- Launch 6 sensors, only sensors 2 and 4 are TACAN at different positions:
-  ```bash
-  python simulation_manager.py -s 6 \
-    --sensor-type 2 tacan --tacan-pos 2 2 2 \
-    --sensor-type 4 tacan --tacan-pos 4 8 8
-  ```
-
-All components are launched using Python's module mode (`python -m ...`) from the project root, ensuring correct imports and multicast configuration.
-
----
-
-### Part 2: Running Components Manually (Advanced/Debugging)
-
-#### 2.1 Vehicle Simulator
-Simulate a vehicle moving from P1 to P2, broadcasting position to the vehicle multicast group:
 ```bash
-python -m vehicles.vehicle_sim --p1 0 0 --p2 10 10 --name vehicle1
+python simulation_manager.py              # 1 aircraft, 3 sensors, web map
+python simulation_manager.py -v 3         # three aircraft on preset routes
+python simulation_manager.py --speed-kts 500
+python simulation_manager.py --headless   # no visualizer
 ```
 
-#### 2.2 Noisy Sensor
-Listen to all vehicles via multicast, add noise, rebroadcast to the sensor multicast group:
+| Option | Description |
+|--------|-------------|
+| `-v`, `--num-vehicles` | Number of aircraft (default: 1) |
+| `-s`, `--num-sensors` | Sensor count (default: 3 — noisy, adas, tacan) |
+| `--speed-kts` | Cruise groundspeed in knots (default: 450) |
+| `--sensor-type <idx> <type>` | Per-sensor type: `noisy`, `adas`, `tacan` |
+| `--tacan-pos <idx> <lat> <lon>` | TACAN radar position (degrees) |
+| `--tacan-airport <idx> <ICAO>` | TACAN at an airport, e.g. `--tacan-airport 1 YHZ` |
+| `--headless`, `--no-visualize` | Do not start a visualizer |
+| `--web` | Browser map at `http://127.0.0.1:8765/` (default) |
+| `--window` | Matplotlib desktop window instead of browser |
+| `--web-port` | Port for web UI (default: 8765) |
+
+> `-h` is reserved for help. Use `--headless` or `--no-visualize` for no GUI.
+
+### Time scale
+
+The web UI writes `.sim_time_scale.json` (gitignored). Aircraft read it each tick so **10×** advances the flight ten times faster in wall-clock time while keeping 450 kt cruise physics.
+
+### Sensor types
+
+- **noisy** — Gaussian position noise (default 50 m), rebroadcast every vehicle update
+- **adas** — Sparse updates (~15 s average)
+- **tacan** — Publishes when the rotating beam aligns with the aircraft; default radar at YHZ
+
+### Examples
+
 ```bash
+# Faster cruise (still “real” speed; shorter wall-clock at 1× time scale)
+python simulation_manager.py --speed-kts 600
+
+# Three aircraft, web map
+python simulation_manager.py -v 3
+
+# TACAN at Halifax and Montreal
+python simulation_manager.py -s 5 \
+  --sensor-type 1 tacan --tacan-airport 1 YHZ \
+  --sensor-type 2 adas \
+  --sensor-type 3 tacan --tacan-airport 3 YUL
+```
+
+## Directory structure
+
+```
+geo/                  # Airports, routes, great-circle math, map drawing, time-scale file
+vehicles/             # Aircraft simulator (multicast position stream)
+sensors/              # noisy_sensor, adas_sensor, tacan_sensor
+fusion/               # Multicast fusion app
+visualization/        # web_visualizer (default), visualizer (desktop), shared plot helpers
+simulation_manager.py # Orchestrates all processes
+multicast_config.py   # Shared multicast groups/ports
+requirements.txt
+```
+
+`simulation_manager_v2.py` is a legacy pre-multicast orchestrator and is not used by the current stack.
+
+## Manual components
+
+Run from the project root with `python -m ...`:
+
+```bash
+# Aircraft
+python -m vehicles.vehicle_sim --origin-airport YHZ --dest-airport YUL --name AC123
+
+# Sensors
 python -m sensors.noisy_sensor --name sensor1
-```
+python -m sensors.adas_sensor --name sensor2
+python -m sensors.tacan_sensor --name tacan1 --radar-lat 44.881 --radar-lon -63.508
 
-#### 2.3 Sensor Fusion
-Fuse all sensor outputs received via multicast:
-```bash
+# Fusion
 python -m fusion.fusion_app
+
+# Visualization (simulation should already be producing multicast traffic)
+python -m visualization.web_visualizer
+python -m visualization.visualizer   # desktop window; needs local display
 ```
 
-#### 2.4 Visualization
-Visualize sensor and fused positions in real time (listens to sensor multicast group):
-```bash
-python -m visualization.visualizer
-```
+## Multicast architecture
 
-> **Important:** All commands above must be run from the project root directory (`/home/bobbyc/Projects/Sensors`) to ensure correct imports and multicast configuration.
+| Stage | Group:port | Listeners |
+|-------|------------|-----------|
+| Aircraft → sensors | `224.1.1.1:5004` | Sensors only |
+| Sensors → fusion / viz | `224.1.1.2:5005` | Fusion, visualizers |
 
----
+Defined in `multicast_config.py`. Stages are separated so fusion and visualization do not receive raw aircraft truth on the vehicle group.
 
-### Multicast Architecture
+### Message formats
 
-- **Vehicle → Sensor:**
-  - Vehicles broadcast to `VEHICLE_MCAST_GRP:VEHICLE_MCAST_PORT` (see `multicast_config.py`)
-  - Only sensors listen on this group/port
-- **Sensor → Fusion/Visualization:**
-  - Sensors broadcast to `SENSOR_MCAST_GRP:SENSOR_MCAST_PORT`
-  - Only fusion and visualization apps listen on this group/port
+- Vehicle: `vehicle,name,lat,lon,progress,heading_deg,alt_ft,speed_kts`
+- Sensor: `sensor,name,lat,lon,progress,noise_or_type` (`noise` in meters for noisy; `ADAS` / `TACAN` for others)
 
-This ensures each stage only receives the data it is supposed to, preventing "cheating" or cross-stage eavesdropping.
+## Visualization
 
----
+**Web (recommended):** `simulation_manager.py` starts `visualization.web_visualizer` by default.
 
-### Troubleshooting
+- Left panel: map, aircraft truth (blue), sensor dots, fused ★
+- Right panel: same map with fused track
+- Time scale buttons above the map
 
-- **ModuleNotFoundError: No module named 'multicast_config'**
-  - Make sure you are running all commands from the project root (`/home/bobbyc/Projects/Sensors`)
-  - Always use `python -m ...` (module mode), not `python script.py`, for all components
+**Desktop:** `python simulation_manager.py --window` or `python -m visualization.visualizer` (requires a working X11/Wayland display on the same machine).
 
-A separate visualization app (`visualization/visualizer.py`) displays real-time positions of all sensors and the fused position. The simulation manager launches this by default unless you use `--headless` or `--no-visualize`.
+## Troubleshooting
 
-- Sensor positions are color-coded and labeled by name.
-- Fused position is plotted as `Fused_alg1`.
-- Axes are scaled to match the simulation area (radius=10, axes: -12 to 12).
-
-To run the visualizer manually:
-```bash
-python -m visualization.visualizer
-```
-To disable visualization when running the simulation manager, use:
-```bash
-python simulation_manager.py --headless
-# or
-python simulation_manager.py --no-visualize
-```
+| Problem | Fix |
+|---------|-----|
+| `ModuleNotFoundError: multicast_config` | Run from project root; use `python -m package.module` |
+| No browser map | Open http://127.0.0.1:8765/ ; check nothing else is bound to the port |
+| Duplicate or frozen sim | Stop all: `pkill -f simulation_manager.py` and related `python -m` processes; start once |
+| No matplotlib window | Use the web UI (default), not `--window` |
+| Flight takes hours | Expected at 450 kt on long routes; use time scale **10×** or higher |
+| `ModuleNotFoundError: matplotlib` | `pip install -r requirements.txt` |
 
 ## Extending
-- Add more vehicles (different ports, names)
-- Add more sensors (each listens to a vehicle, broadcasts on a unique port)
-- The fusion app can listen to as many sensors as you run
+
+- Add airports and routes in `geo/eastern_canada.py`
+- Add sensor types under `sensors/`; teach `fusion/fusion_app.py` and `visualization/plot_live.py` any new noise labels
+- Adjust map extent in `MAP_BOUNDS` and `geo/map_plot.py`
 
 ## Contributing
-Pull requests and issues are welcome! Please open an issue to discuss major changes.
+
+Pull requests and issues are welcome.
 
 ## License
-MIT License. See LICENSE for details.
+
+MIT License. See LICENSE.

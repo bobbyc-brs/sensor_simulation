@@ -1,2 +1,4 @@
-matplotlib
-# Only Python standard library required for now
+# Runtime dependency for map rendering (web and desktop visualizers).
+matplotlib>=3.8
+
+# All other components use the Python standard library only (socket, subprocess, http.server, etc.).

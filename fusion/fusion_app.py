@@ -35,12 +35,17 @@ def sensor_multicast_listener(q, stop_event):
                 if len(parts) < 6 or parts[0] != 'sensor':
                     continue
                 # Parse sensor message: sensor,name,x,y,t,noise_std
+                noise_raw = parts[5]
+                try:
+                    noise_std = float(noise_raw)
+                except ValueError:
+                    noise_std = {'ADAS': 200.0, 'TACAN': 150.0}.get(noise_raw, 100.0)
                 msg = {
                     'name': parts[1],
                     'x': float(parts[2]),
                     'y': float(parts[3]),
                     't': float(parts[4]),
-                    'noise_std': float(parts[5])
+                    'noise_std': noise_std,
                 }
                 q.put((parts[1], msg))
             except Exception:

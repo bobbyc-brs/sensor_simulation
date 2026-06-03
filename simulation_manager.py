@@ -4,28 +4,40 @@ import sys
 import time
 import signal
 
-VEHICLE_BASE_PORT = 9001
-SENSOR_BASE_PORT = 9101
+from geo.sim_control import init_time_scale
+from geo.eastern_canada import (
+    AIRPORTS,
+    DEFAULT_CRUISE_SPEED_KTS,
+    DEFAULT_FLIGHT_ROUTES,
+    airport_position,
+    route_label,
+    route_for_vehicle_index,
+)
 
 processes = []
 
-def launch_vehicle(idx, p1, p2, name):
-    cmd = [sys.executable, '-m', 'vehicles.vehicle_sim',
-           '--p1', str(p1[0]), str(p1[1]),
-           '--p2', str(p2[0]), str(p2[1]),
-           '--name', name]
+def launch_vehicle(idx, origin_icao, dest_icao, name, speed_kts):
+    cmd = [
+        sys.executable, '-m', 'vehicles.vehicle_sim',
+        '--origin-airport', origin_icao,
+        '--dest-airport', dest_icao,
+        '--name', name,
+        '--speed-kts', str(speed_kts),
+    ]
     return subprocess.Popen(cmd)
 
-def launch_sensor(idx, name, sensor_type='noisy', tacan_x=None, tacan_y=None):
+def launch_sensor(idx, name, sensor_type='noisy', tacan_lat=None, tacan_lon=None):
     if sensor_type == 'noisy':
         cmd = [sys.executable, '-m', 'sensors.noisy_sensor', '--name', name]
     elif sensor_type == 'adas':
         cmd = [sys.executable, '-m', 'sensors.adas_sensor', '--name', name]
     elif sensor_type == 'tacan':
-        if tacan_x is None or tacan_y is None:
-            raise ValueError('TACAN sensor requires --tacan-x and --tacan-y')
-        cmd = [sys.executable, '-m', 'sensors.tacan_sensor', '--name', name,
-               '--radar-x-pos', str(tacan_x), '--radar-y-pos', str(tacan_y)]
+        if tacan_lat is None or tacan_lon is None:
+            raise ValueError('TACAN sensor requires radar lat/lon')
+        cmd = [
+            sys.executable, '-m', 'sensors.tacan_sensor', '--name', name,
+            '--radar-lat', str(tacan_lat), '--radar-lon', str(tacan_lon),
+        ]
     else:
         raise ValueError(f'Unknown sensor type: {sensor_type}')
     return subprocess.Popen(cmd)
@@ -46,106 +58,125 @@ def stop_all():
     print("All processes stopped.")
 
 def main():
-    parser = argparse.ArgumentParser(description="Simulation Manager for sensor_simulation")
-    parser.add_argument('-v', '--num-vehicles', type=int, default=1, help='Number of vehicles')
-    parser.add_argument('-s', '--num-sensors', type=int, help='Number of sensors (default: 3; one each: noisy, adas, tacan)')
-    parser.add_argument('--sensor-type', type=str, nargs=2, action='append', metavar=('IDX','TYPE'), help='Specify sensor type for a sensor index: --sensor-type <idx> <type> (repeatable, types: noisy, adas, tacan)')
-    parser.add_argument('--tacan-pos', type=float, nargs=3, action='append', metavar=('IDX','X','Y'), help='TACAN sensor index and position: --tacan-pos <idx> <x> <y> (repeatable)')
-    parser.add_argument('--delta', type=float, default=135.0, help='Delta angle (degrees) between start and end for each vehicle (default: 135)')
-    parser.add_argument('--headless', '--no-visualize', action='store_true', help='Do not launch the visualization app (use --headless or --no-visualize)')
+    parser = argparse.ArgumentParser(
+        description="Simulation Manager — Eastern Canada airport flights and sensor fusion"
+    )
+    parser.add_argument('-v', '--num-vehicles', type=int, default=1, help='Number of aircraft')
+    parser.add_argument('-s', '--num-sensors', type=int,
+                        help='Number of sensors (default: 3; one each: noisy, adas, tacan)')
+    parser.add_argument('--sensor-type', type=str, nargs=2, action='append', metavar=('IDX', 'TYPE'),
+                        help='Sensor type by index: noisy, adas, tacan')
+    parser.add_argument('--tacan-pos', type=float, nargs=3, action='append', metavar=('IDX', 'LAT', 'LON'),
+                        help='TACAN sensor index and radar position: --tacan-pos <idx> <lat> <lon>')
+    parser.add_argument('--tacan-airport', type=str, nargs=2, action='append', metavar=('IDX', 'ICAO'),
+                        help='Place TACAN at airport: --tacan-airport <idx> YHZ')
+    parser.add_argument('--speed-kts', type=float, default=DEFAULT_CRUISE_SPEED_KTS,
+                        help=f'Cruise speed for all flights (default: {DEFAULT_CRUISE_SPEED_KTS})')
+    parser.add_argument('--headless', '--no-visualize', action='store_true',
+                        help='Do not launch any visualization')
+    parser.add_argument('--web', action='store_true',
+                        help='Live map in browser at http://127.0.0.1:8765/ (recommended)')
+    parser.add_argument('--window', action='store_true',
+                        help='Live map in a matplotlib desktop window (needs local X11/Wayland)')
+    parser.add_argument('--web-port', type=int, default=8765, help='Port for --web visualizer')
     args = parser.parse_args()
 
     num_vehicles = args.num_vehicles
-    # If num_sensors is not specified, create 3 sensors (noisy, adas, tacan), else all noisy
     if args.num_sensors is None:
         num_sensors = 3
         sensor_types = ['noisy', 'adas', 'tacan']
     else:
         num_sensors = args.num_sensors
         sensor_types = ['noisy'] * num_sensors
-    # Override with CLI --sensor-type if present
+
     if args.sensor_type:
         for entry in args.sensor_type:
             idx, typ = entry
             idx = int(idx)
             if 1 <= idx <= num_sensors:
-                sensor_types[idx-1] = typ.lower()
+                sensor_types[idx - 1] = typ.lower()
+
     tacan_pos_map = {}
     if args.tacan_pos:
         for entry in args.tacan_pos:
-            idx, x, y = map(float, entry)
-            tacan_pos_map[int(idx)] = (x, y)
-    delta_deg = args.delta
+            idx, lat, lon = map(float, entry)
+            tacan_pos_map[int(idx)] = (lat, lon)
+    if args.tacan_airport:
+        for entry in args.tacan_airport:
+            idx, icao = entry
+            icao = icao.upper()
+            tacan_pos_map[int(idx)] = airport_position(icao)
 
-    # Place vehicles on a circle:
-    #   - Each vehicle starts at a unique position on the circle (evenly spaced, using polar coordinates)
-    #   - Each vehicle's destination is 'delta' degrees further around the circle from its starting point
-    #   - The --delta argument controls the angular separation between start and end (default: 135 degrees)
-    import math
-    radius = 10.0
-    center = (0.0, 0.0)
-    vehicle_paths = []
-    for i in range(num_vehicles):
-        theta = 2 * math.pi * i / num_vehicles
-        theta2 = theta + math.radians(delta_deg)
-        start = (center[0] + radius * math.cos(theta), center[1] + radius * math.sin(theta))
-        end = (center[0] + radius * math.cos(theta2), center[1] + radius * math.sin(theta2))
-        vehicle_paths.append((start, end))
+    init_time_scale(1.0)
+    print(f"Eastern Canada airports: {', '.join(f'{k} ({v['name']})' for k, v in AIRPORTS.items())}")
+    print(f"Launching {num_vehicles} aircraft and {num_sensors} sensors at {args.speed_kts:.0f} kt cruise...")
 
-    print(f"Launching {num_vehicles} vehicles and {num_sensors} sensors...")
-
-    # Launch vehicles
     vehicle_info = []
-    for i, (p1, p2) in enumerate(vehicle_paths):
-        name = f"vehicle{i+1}"
-        p = launch_vehicle(i, p1, p2, name)
+    exited_logged = set()
+    for i in range(num_vehicles):
+        origin_icao, dest_icao = DEFAULT_FLIGHT_ROUTES[i % len(DEFAULT_FLIGHT_ROUTES)]
+        name = f"flight{i + 1}"
+        lat1, lon1, lat2, lon2, dist_km, duration_s = route_for_vehicle_index(i)
+        p = launch_vehicle(i, origin_icao, dest_icao, name, args.speed_kts)
         processes.append(p)
-        vehicle_info.append({'proc': p, 'name': name, 'type': 'vehicle', 'idx': i})
-        print(f"  Vehicle {name} from {p1} to {p2} (multicast)")
+        vehicle_info.append({
+            'proc': p, 'name': name, 'idx': i,
+            'origin': origin_icao, 'dest': dest_icao,
+        })
+        print(
+            f"  {name}: {route_label(origin_icao, dest_icao)} — "
+            f"{dist_km:.0f} km, ~{duration_s / 60:.0f} min"
+        )
 
-    # Launch sensors (each sensor listens to all vehicles via multicast)
     sensor_info = []
-    # Prepare per-sensor (1-based) types and tacan positions
-    sensor_types_to_launch = []
+    default_tacan_lat, default_tacan_lon = airport_position('YHZ')
     for i, stype in enumerate(sensor_types):
-        idx = i+1
+        idx = i + 1
+        name = f"sensor{i + 1}"
         if stype == 'tacan':
-            x, y = tacan_pos_map.get(idx, (0.0, 0.0))
+            tlat, tlon = tacan_pos_map.get(idx, (default_tacan_lat, default_tacan_lon))
         else:
-            x, y = None, None
-        sensor_types_to_launch.append((stype, x, y))
-
-    for i, (stype, tx, ty) in enumerate(sensor_types_to_launch):
-        name = f"sensor{i+1}"
-        p = launch_sensor(i, name, sensor_type=stype, tacan_x=tx, tacan_y=ty)
+            tlat, tlon = None, None
+        p = launch_sensor(i, name, sensor_type=stype, tacan_lat=tlat, tacan_lon=tlon)
         processes.append(p)
-        sensor_info.append({'proc': p, 'name': name, 'type': stype, 'idx': i, 'tacan_x': tx, 'tacan_y': ty})
-        print(f"  Sensor {name} ({stype}{' @ ('+str(tx)+','+str(ty)+')' if stype=='tacan' else ''}) (multicast)")
+        loc = f' @ ({tlat:.3f}, {tlon:.3f})' if stype == 'tacan' else ''
+        sensor_info.append({
+            'proc': p, 'name': name, 'type': stype, 'idx': i,
+            'tacan_lat': tlat, 'tacan_lon': tlon,
+        })
+        print(f"  Sensor {name} ({stype}{loc})")
 
-    # Launch fusion app
     p = launch_fusion()
     processes.append(p)
-    fusion_info = {'proc': p, 'name': 'fusion', 'type': 'fusion'}
-    print(f"  Fusion app (multicast)")
+    fusion_info = {'proc': p, 'name': 'fusion'}
+    print("  Fusion app")
 
-    # Launch visualization app unless headless
     visualizer_proc = None
     if not args.headless:
+        use_web = args.web or not args.window
         try:
-            cmd = [sys.executable, '-m', 'visualization.visualizer']
-            visualizer_proc = subprocess.Popen(cmd)
-            processes.append(visualizer_proc)
-            print(f"  Visualization app started (multicast)")
+            if use_web:
+                cmd = [sys.executable, '-m', 'visualization.web_visualizer', '--port', str(args.web_port)]
+                visualizer_proc = subprocess.Popen(cmd)
+                processes.append(visualizer_proc)
+                print(f"  Web visualizer → http://127.0.0.1:{args.web_port}/  (open in your browser)")
+            else:
+                visualizer_proc = subprocess.Popen([sys.executable, '-m', 'visualization.visualizer'])
+                processes.append(visualizer_proc)
+                print("  Desktop visualizer (matplotlib window)")
         except Exception as e:
-            print(f"[WARN] Could not start visualization app: {e}")
+            print(f"[WARN] Could not start visualization: {e}")
 
     def signal_handler(sig, frame):
         stop_all()
         sys.exit(0)
     signal.signal(signal.SIGINT, signal_handler)
 
-    import socket, struct, threading, time
+    import socket
+    import struct
+    import threading
     from multicast_config import SENSOR_MCAST_GRP, SENSOR_MCAST_PORT
+
     last_activity_time = [time.time()]
     stop_monitor = threading.Event()
     activity_lock = threading.Lock()
@@ -159,45 +190,53 @@ def main():
         sock.settimeout(1.0)
         while not stop_monitor.is_set():
             try:
-                data, _ = sock.recvfrom(1024)
+                sock.recvfrom(1024)
                 with activity_lock:
                     last_activity_time[0] = time.time()
             except socket.timeout:
                 continue
         sock.close()
 
-    monitor_thread = threading.Thread(target=monitor_multicast, daemon=True)
-    monitor_thread.start()
+    threading.Thread(target=monitor_multicast, daemon=True).start()
 
     try:
         while True:
-            # Check vehicles
             for v in vehicle_info:
-                if v['proc'].poll() is not None:
-                    print(f"[LOG] Vehicle {v['name']} exited with code {v['proc'].returncode}")
-            # Check sensors and restart if needed
+                if v['proc'].poll() is not None and v['name'] not in exited_logged:
+                    exited_logged.add(v['name'])
+                    print(f"[LOG] {v['name']} ({v['origin']}→{v['dest']}) finished, code {v['proc'].returncode}")
             for s in sensor_info:
                 if s['proc'].poll() is not None:
-                    print(f"[LOG] Sensor {s['name']} exited with code {s['proc'].returncode}, restarting...")
-                    new_proc = launch_sensor(s['idx'], s['name'], sensor_type=s['type'], tacan_x=s.get('tacan_x'), tacan_y=s.get('tacan_y'))
+                    print(f"[LOG] Sensor {s['name']} exited ({s['proc'].returncode}), restarting...")
+                    new_proc = launch_sensor(
+                        s['idx'], s['name'], sensor_type=s['type'],
+                        tacan_lat=s.get('tacan_lat'), tacan_lon=s.get('tacan_lon'),
+                    )
+                    old = s['proc']
                     s['proc'] = new_proc
-                    # Update processes list
-                    for idx, proc in enumerate(processes):
-                        if proc == s['proc']:
-                            processes[idx] = new_proc
-                            break
+                    if old in processes:
+                        processes[processes.index(old)] = new_proc
                     else:
                         processes.append(new_proc)
-            # Check fusion app
             if fusion_info['proc'].poll() is not None:
                 print(f"[LOG] Fusion app exited with code {fusion_info['proc'].returncode}")
 
-            # Check for inactivity
+            all_aircraft_done = all(v['proc'].poll() is not None for v in vehicle_info)
             with activity_lock:
                 inactive_secs = time.time() - last_activity_time[0]
-            if inactive_secs > 60:
-                print("[INFO] No multicast activity for 60 seconds. Stopping all simulation processes except visualization.")
-                # Stop all except visualization
+            if all_aircraft_done and inactive_secs > 30:
+                print("[INFO] All flights complete; stopping simulation processes.")
+                for proc in processes:
+                    if visualizer_proc is not None and proc == visualizer_proc:
+                        continue
+                    try:
+                        proc.terminate()
+                    except Exception:
+                        pass
+                stop_monitor.set()
+                break
+            if inactive_secs > 120:
+                print("[INFO] No sensor activity for 120s; stopping.")
                 for proc in processes:
                     if visualizer_proc is not None and proc == visualizer_proc:
                         continue

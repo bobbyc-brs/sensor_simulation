@@ -47,3 +47,6 @@ coverage.xml
 
 # VSCode
 .vscode/
+
+# Runtime simulation control (time scale from web UI)
+.sim_time_scale.json
