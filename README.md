@@ -176,6 +176,10 @@ Defined in `multicast_config.py`. Stages are separated so fusion and visualizati
 - Add sensor types under `sensors/`; teach `fusion/fusion_app.py` and `visualization/plot_live.py` any new noise labels
 - Adjust map extent in `MAP_BOUNDS` and `geo/map_plot.py`
 
+## Development history
+
+See [DEVELOPMENT_LOG.md](DEVELOPMENT_LOG.md) for a chronological record of features and changes (including when `web_visualizer` was added vs the original desktop `visualizer`).
+
 ## Contributing
 
 Pull requests and issues are welcome.
