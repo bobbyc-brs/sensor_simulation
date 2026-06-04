@@ -22,6 +22,8 @@ _SCALE_BUTTONS = ''.join(
     for s in VALID_SCALES
 )
 
+_AIRPORT_TOGGLE = '<button type="button" id="airports-btn" class="toggle-btn active" onclick="toggleAirports()">&#9992; Airports</button>'
+
 INDEX_HTML = f"""<!DOCTYPE html>
 <html>
 <head>
@@ -38,6 +40,12 @@ INDEX_HTML = f"""<!DOCTYPE html>
     .scale-btn:hover {{ background: #3d5289; }}
     .scale-btn.active {{ background: #c44e00; border-color: #e67e22; }}
     #scale-label {{ margin-left: 0.5rem; color: #ccc; font-size: 0.95rem; }}
+    .toggle-btn {{
+      background: #2c3e6b; color: #eee; border: 1px solid #556; padding: 0.35rem 0.65rem;
+      border-radius: 4px; cursor: pointer; font-size: 0.9rem; margin-left: 0.75rem;
+    }}
+    .toggle-btn.active {{ background: #1a6b3e; border-color: #2ecc71; }}
+    .toggle-btn:hover {{ filter: brightness(1.2); }}
     img {{ max-width: 100%; border: 1px solid #444; background: #fff; }}
     .hint {{ color: #aaa; font-size: 0.85rem; margin-top: 0.5rem; }}
   </style>
@@ -48,6 +56,7 @@ INDEX_HTML = f"""<!DOCTYPE html>
     <span>Time scale:</span>
     {_SCALE_BUTTONS}
     <span id="scale-label">1×</span>
+    {_AIRPORT_TOGGLE}
   </div>
   <p class="hint">Blue = aircraft truth, dots = sensors, ★ = fused. Left: all tracks; right: fused on map. Higher scale = faster flight.</p>
   <img id="frame" alt="live map" src="/live.png">
@@ -66,6 +75,12 @@ INDEX_HTML = f"""<!DOCTYPE html>
       btn.addEventListener('click', () => setScale(parseFloat(btn.dataset.scale)));
     }});
     setActiveScale(1);
+    let showAirports = true;
+    function toggleAirports() {{
+      showAirports = !showAirports;
+      document.getElementById('airports-btn').classList.toggle('active', showAirports);
+      fetch('/airports?show=' + (showAirports ? '1' : '0'), {{ method: 'POST' }});
+    }}
     function refresh() {{
       document.getElementById('frame').src = '/live.png?t=' + Date.now();
       setTimeout(refresh, 500);
@@ -80,12 +95,13 @@ _latest_png = b''
 _png_lock = threading.Lock()
 _state = LivePlotState()
 _feed_q = None
+_show_airports = True
 
 
 def _render_png():
     fig, (ax_map, ax_fused) = plt.subplots(1, 2, figsize=(14, 5.5))
     try:
-        _state.update(_feed_q, ax_map, ax_fused)
+        _state.update(_feed_q, ax_map, ax_fused, show_airports=_show_airports)
         fig.tight_layout()
         buf = io.BytesIO()
         fig.savefig(buf, format='png', dpi=110)
@@ -137,7 +153,14 @@ class _Handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_POST(self):
+        global _show_airports
         parsed = urlparse(self.path)
+        if parsed.path == '/airports':
+            qs = parse_qs(parsed.query)
+            _show_airports = qs.get('show', ['1'])[0] != '0'
+            self.send_response(204)
+            self.end_headers()
+            return
         if parsed.path == '/scale':
             qs = parse_qs(parsed.query)
             try:

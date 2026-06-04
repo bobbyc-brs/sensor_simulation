@@ -5,6 +5,7 @@ from matplotlib import colormaps
 
 import fusion.fusion_app as fusion_app
 from basemap import NaturalEarthMap
+from geo.eastern_canada import AIRPORTS
 
 _basemap = NaturalEarthMap()
 
@@ -59,7 +60,7 @@ class LivePlotState:
                 result[vehicle] = pos
         return result
 
-    def update(self, q, ax_map, ax_fused):
+    def update(self, q, ax_map, ax_fused, show_airports=True):
         self.ingest(q)
         fused_by_vehicle = self._compute_fused_by_vehicle()
         for vehicle, pos in fused_by_vehicle.items():
@@ -67,6 +68,9 @@ class LivePlotState:
 
         ax_map.clear()
         _basemap.draw(ax_map, title='All tracks')
+        if show_airports:
+            for ap in AIRPORTS.values():
+                ax_map.plot(ap['lon'], ap['lat'], marker='^', color='#1a5276', markersize=9, zorder=4)
 
         for name, points in self.vehicle_history.items():
             if not points:
@@ -97,6 +101,9 @@ class LivePlotState:
 
         ax_fused.clear()
         _basemap.draw(ax_fused, title='Fused position (per aircraft)')
+        if show_airports:
+            for ap in AIRPORTS.values():
+                ax_fused.plot(ap['lon'], ap['lat'], marker='^', color='#1a5276', markersize=9, zorder=4)
         for vehicle, history in self.fused_history.items():
             if not history:
                 continue
