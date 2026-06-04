@@ -4,7 +4,9 @@ from collections import defaultdict
 from matplotlib import colormaps
 
 import fusion.fusion_app as fusion_app
-from geo.map_plot import draw_eastern_canada_map
+from basemap import NaturalEarthMap
+
+_basemap = NaturalEarthMap()
 
 
 class LivePlotState:
@@ -64,7 +66,7 @@ class LivePlotState:
             self.fused_history[vehicle].append(pos)
 
         ax_map.clear()
-        draw_eastern_canada_map(ax_map, show_routes=False, title='All tracks')
+        _basemap.draw(ax_map, title='All tracks')
 
         for name, points in self.vehicle_history.items():
             if not points:
@@ -94,10 +96,7 @@ class LivePlotState:
             ax_map.legend(loc='upper left', fontsize=6, ncol=2)
 
         ax_fused.clear()
-        draw_eastern_canada_map(
-            ax_fused, show_routes=False, show_airport_labels=False,
-            title='Fused position (per aircraft)',
-        )
+        _basemap.draw(ax_fused, title='Fused position (per aircraft)')
         for vehicle, history in self.fused_history.items():
             if not history:
                 continue
