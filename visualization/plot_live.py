@@ -69,8 +69,13 @@ class LivePlotState:
         ax_map.clear()
         _basemap.draw(ax_map, title='All tracks')
         if show_airports:
-            for ap in AIRPORTS.values():
+            for icao, ap in AIRPORTS.items():
                 ax_map.plot(ap['lon'], ap['lat'], marker='^', color='#1a5276', markersize=9, zorder=4)
+                ax_map.annotate(
+                    f"{icao}\n{ap['name']}", (ap['lon'], ap['lat']),
+                    textcoords='offset points', xytext=(6, 6),
+                    fontsize=7, color='#1a252f', zorder=5,
+                )
 
         for name, points in self.vehicle_history.items():
             if not points:
@@ -102,8 +107,13 @@ class LivePlotState:
         ax_fused.clear()
         _basemap.draw(ax_fused, title='Fused position (per aircraft)')
         if show_airports:
-            for ap in AIRPORTS.values():
+            for icao, ap in AIRPORTS.items():
                 ax_fused.plot(ap['lon'], ap['lat'], marker='^', color='#1a5276', markersize=9, zorder=4)
+                ax_fused.annotate(
+                    f"{icao}\n{ap['name']}", (ap['lon'], ap['lat']),
+                    textcoords='offset points', xytext=(6, 6),
+                    fontsize=7, color='#1a252f', zorder=5,
+                )
         for vehicle, history in self.fused_history.items():
             if not history:
                 continue
