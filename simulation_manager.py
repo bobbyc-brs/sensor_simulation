@@ -203,7 +203,8 @@ Examples:
             tacan_pos_map[i + 1] = airport_position(spec['tacan_airport'].upper())
 
     init_time_scale(1.0)
-    print(f"Eastern Canada airports: {', '.join(f'{k} ({v['name']})' for k, v in AIRPORTS.items())}")
+    airport_list = ", ".join(f"{k} ({v['name']})" for k, v in AIRPORTS.items())
+    print(f"Eastern Canada airports: {airport_list}")
     if scenario_label:
         print(f"Scenario: {scenario_label}")
     print(
