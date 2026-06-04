@@ -3,14 +3,15 @@ import math
 from typing import List, Optional, Tuple
 
 from matplotlib.patches import Polygon
+from matplotlib.ticker import FuncFormatter
 
 from geo.eastern_canada import AIRPORTS, DEFAULT_FLIGHT_ROUTES, MAP_BOUNDS
 
 # Simplified land (lon, lat), clipped to MAP_BOUNDS visually.
 _LAND_REGIONS: List[List[Tuple[float, float]]] = [
-    # Newfoundland & Labrador
+    # Newfoundland & Labrador (east edge matches widened MAP_BOUNDS)
     [
-        (-54.0, 46.0), (-54.0, 52.5), (-57.5, 52.5), (-59.0, 50.0), (-57.0, 47.0), (-55.0, 46.0),
+        (-51.2, 46.0), (-51.2, 52.5), (-57.5, 52.5), (-59.0, 50.0), (-57.0, 47.0), (-55.0, 46.0),
     ],
     # Nova Scotia, PEI, NB
     [
@@ -18,18 +19,32 @@ _LAND_REGIONS: List[List[Tuple[float, float]]] = [
     ],
     # Quebec + St. Lawrence
     [
-        (-57.0, 44.0), (-57.0, 54.0), (-70.0, 54.0), (-70.0, 40.5), (-66.0, 44.0), (-63.0, 45.5),
-        (-57.0, 44.0),
+        (-51.2, 44.0), (-51.2, 55.4), (-70.0, 55.4), (-70.0, 38.6), (-66.0, 44.0), (-63.0, 45.5),
+        (-51.2, 44.0),
     ],
-    # Southern Ontario (east of Toronto — western edge ~-80.5)
+    # Southern Ontario (east of Toronto — western edge ~MAP_BOUNDS lon_min)
     [
-        (-70.0, 40.0), (-70.0, 46.5), (-80.5, 46.5), (-80.5, 40.0), (-74.0, 40.0), (-70.0, 40.0),
+        (-70.0, 38.6), (-70.0, 46.5), (-81.8, 46.5), (-81.8, 38.6), (-74.0, 38.6), (-70.0, 38.6),
     ],
 ]
 
 
-def _aspect_correction_lat(mean_lat: float) -> float:
+def geographic_aspect(mean_lat: float) -> float:
+    """
+    Matplotlib aspect so one degree of latitude and one degree of longitude
+    represent the same ground distance (at mean_lat).
+    """
     return 1.0 / max(0.01, abs(math.cos(math.radians(mean_lat))))
+
+
+def _format_axes_geographic(ax) -> None:
+    """Label west longitudes as positive °W; keep equal-distance scaling."""
+    ax.xaxis.set_major_formatter(
+        FuncFormatter(lambda lon, _pos: f'{abs(lon):.0f}°W' if lon < 0 else f'{lon:.0f}°')
+    )
+    ax.yaxis.set_major_formatter(
+        FuncFormatter(lambda lat, _pos: f'{lat:.0f}°N')
+    )
 
 
 def _airport_in_bounds(icao: str) -> bool:
@@ -55,13 +70,11 @@ def draw_eastern_canada_map(
     mean_lat = (MAP_BOUNDS['lat_min'] + MAP_BOUNDS['lat_max']) / 2.0
     ax.set_xlim(MAP_BOUNDS['lon_min'], MAP_BOUNDS['lon_max'])
     ax.set_ylim(MAP_BOUNDS['lat_min'], MAP_BOUNDS['lat_max'])
-    ax.set_aspect(_aspect_correction_lat(mean_lat), adjustable='box')
-    try:
-        ax.set_box_aspect(1)
-    except AttributeError:
-        pass
-    ax.set_xlabel('Longitude (°W)')
-    ax.set_ylabel('Latitude (°N)')
+    # Equal ground distance per degree (do not use set_box_aspect(1) — it squashes the map).
+    ax.set_aspect(geographic_aspect(mean_lat), adjustable='box')
+    _format_axes_geographic(ax)
+    ax.set_xlabel('Longitude')
+    ax.set_ylabel('Latitude')
     ax.set_title(title)
     ax.grid(True, linestyle=':', alpha=0.45, color='#445566')
 
@@ -103,7 +116,8 @@ def draw_eastern_canada_map(
 def save_airports_map(path: str) -> None:
     """Write a static PNG of airports and default routes."""
     import matplotlib.pyplot as plt
-    fig, ax = plt.subplots(figsize=(9, 9))
+    # Width:height ~ geographic extent at mean latitude (~26.5° lon × cos(47°) vs 14° lat).
+    fig, ax = plt.subplots(figsize=(10, 6.5))
     draw_eastern_canada_map(ax, show_routes=True)
     fig.tight_layout()
     fig.savefig(path, dpi=150)

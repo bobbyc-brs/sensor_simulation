@@ -52,8 +52,10 @@ Writes `geo/eastern_canada_airports.png`.
 ## Simulation manager
 
 ```bash
-python simulation_manager.py              # 1 aircraft, 3 sensors, web map
-python simulation_manager.py -v 3         # three aircraft on preset routes
+python simulation_manager.py              # 1 aircraft, 1 radar + noisy + ADAS, web map
+python simulation_manager.py -v 10 -r 7 # 10 aircraft, 7 TACAN radars (+ 1 noisy + 1 ADAS)
+python simulation_manager.py -v 5 -r 3 --num-noisy 0 --num-adas 0   # aircraft + radars only
+python simulation_manager.py --scenario complex   # same as -v 10 -r 7 --num-noisy 2 --num-adas 2
 python simulation_manager.py --speed-kts 500
 python simulation_manager.py --headless   # no visualizer
 ```
@@ -61,7 +63,11 @@ python simulation_manager.py --headless   # no visualizer
 | Option | Description |
 |--------|-------------|
 | `-v`, `--num-vehicles` | Number of aircraft (default: 1) |
-| `-s`, `--num-sensors` | Sensor count (default: 3 — noisy, adas, tacan) |
+| `-r`, `--num-radars` | Number of TACAN radar sensors at airports YHZ→YUL→YYZ→… (default: 1) |
+| `--num-noisy` | High-rate noisy sensors (default: 1) |
+| `--num-adas` | ADAS sensors (default: 1) |
+| `--scenario` | Named preset: `complex` (= 10 aircraft, 7 radars, 2 noisy, 2 ADAS) |
+| `-s`, `--num-sensors` | Legacy: all noisy (prefer `-r` / `--num-noisy` / `--num-adas`) |
 | `--speed-kts` | Cruise groundspeed in knots (default: 450) |
 | `--sensor-type <idx> <type>` | Per-sensor type: `noisy`, `adas`, `tacan` |
 | `--tacan-pos <idx> <lat> <lon>` | TACAN radar position (degrees) |
@@ -91,6 +97,11 @@ python simulation_manager.py --speed-kts 600
 
 # Three aircraft, web map
 python simulation_manager.py -v 3
+
+# Ten aircraft, seven radars (plus 2 noisy + 2 ADAS)
+python simulation_manager.py -v 10 -r 7 --num-noisy 2 --num-adas 2
+# or the same layout as a preset:
+python simulation_manager.py --scenario complex
 
 # TACAN at Halifax and Montreal
 python simulation_manager.py -s 5 \
@@ -147,14 +158,14 @@ Defined in `multicast_config.py`. Stages are separated so fusion and visualizati
 ### Message formats
 
 - Vehicle: `vehicle,name,lat,lon,progress,heading_deg,alt_ft,speed_kts`
-- Sensor: `sensor,name,lat,lon,progress,noise_or_type` (`noise` in meters for noisy; `ADAS` / `TACAN` for others)
+- Sensor: `sensor,name,lat,lon,progress,noise_or_type,vehicle` (target aircraft callsign, e.g. `flight3`)
 
 ## Visualization
 
 **Web (recommended):** `simulation_manager.py` starts `visualization.web_visualizer` by default.
 
 - Left panel: map, aircraft truth (blue), sensor dots, fused ★
-- Right panel: same map with fused track
+- Right panel: fused track **per aircraft** (one colored star/trail per flight)
 - Time scale buttons above the map
 
 **Desktop:** `python simulation_manager.py --window` or `python -m visualization.visualizer` (requires a working X11/Wayland display on the same machine).

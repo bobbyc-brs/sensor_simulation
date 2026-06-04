@@ -83,7 +83,7 @@ _feed_q = None
 
 
 def _render_png():
-    fig, (ax_map, ax_fused) = plt.subplots(1, 2, figsize=(12, 6))
+    fig, (ax_map, ax_fused) = plt.subplots(1, 2, figsize=(14, 5.5))
     try:
         _state.update(_feed_q, ax_map, ax_fused)
         fig.tight_layout()

@@ -50,7 +50,7 @@ def main():
                 last_publish[veh] = 0
                 publish_interval[veh] = random.uniform(args.interval * 0.8, args.interval * 1.2)
             if now - last_publish[veh] >= publish_interval[veh]:
-                msg = f"sensor,{args.name},{v['x']:.3f},{v['y']:.3f},{v['t']:.3f},ADAS"
+                msg = f"sensor,{args.name},{v['x']:.3f},{v['y']:.3f},{v['t']:.3f},ADAS,{veh}"
                 send_sock.sendto(msg.encode(), send_addr)
                 print(f"ADAS Broadcast: {msg}")
                 last_publish[veh] = now

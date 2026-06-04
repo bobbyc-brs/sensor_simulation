@@ -13,6 +13,7 @@ def parse_sensor(parts):
         noise_std = float(noise_raw)
     except ValueError:
         noise_std = {'ADAS': 200.0, 'TACAN': 150.0}.get(noise_raw, 100.0)
+    vehicle = parts[6] if len(parts) >= 7 else ''
     return {
         'type': 'sensor',
         'name': parts[1],
@@ -20,6 +21,7 @@ def parse_sensor(parts):
         'lon': float(parts[3]),
         't': float(parts[4]),
         'noise_std': noise_std,
+        'vehicle': vehicle,
     }
 
 

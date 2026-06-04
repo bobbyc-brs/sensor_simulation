@@ -13,8 +13,15 @@ from geo.eastern_canada import (
     route_label,
     route_for_vehicle_index,
 )
+from geo.scenarios import (
+    get_scenario,
+    route_for_scenario_index,
+    scenario_names,
+    sensor_specs_from_counts,
+)
 
 processes = []
+
 
 def launch_vehicle(idx, origin_icao, dest_icao, name, speed_kts):
     cmd = [
@@ -26,9 +33,19 @@ def launch_vehicle(idx, origin_icao, dest_icao, name, speed_kts):
     ]
     return subprocess.Popen(cmd)
 
-def launch_sensor(idx, name, sensor_type='noisy', tacan_lat=None, tacan_lon=None):
+
+def launch_sensor(
+    idx,
+    name,
+    sensor_type='noisy',
+    tacan_lat=None,
+    tacan_lon=None,
+    noise_std=None,
+):
     if sensor_type == 'noisy':
         cmd = [sys.executable, '-m', 'sensors.noisy_sensor', '--name', name]
+        if noise_std is not None:
+            cmd.extend(['--noise_std', str(noise_std)])
     elif sensor_type == 'adas':
         cmd = [sys.executable, '-m', 'sensors.adas_sensor', '--name', name]
     elif sensor_type == 'tacan':
@@ -42,9 +59,11 @@ def launch_sensor(idx, name, sensor_type='noisy', tacan_lat=None, tacan_lon=None
         raise ValueError(f'Unknown sensor type: {sensor_type}')
     return subprocess.Popen(cmd)
 
+
 def launch_fusion():
     cmd = [sys.executable, '-m', 'fusion.fusion_app']
     return subprocess.Popen(cmd)
+
 
 def stop_all():
     print("\nStopping all simulation processes...")
@@ -57,15 +76,100 @@ def stop_all():
             p.kill()
     print("All processes stopped.")
 
+
+def _cli_overrides_counts(args) -> bool:
+    """True if the user set aircraft/radar/sensor counts on the command line."""
+    return any(
+        x is not None
+        for x in (
+            args.num_vehicles,
+            args.num_radars,
+            args.num_noisy,
+            args.num_adas,
+            args.num_sensors,
+        )
+    )
+
+
+def _resolve_layout(args):
+    """Return (num_vehicles, sensor_specs, scenario_routes, scenario_label)."""
+    scenario = get_scenario(args.scenario) if args.scenario else None
+    scenario_routes = scenario.get('routes') if scenario else None
+    scenario_label = None
+    if scenario:
+        scenario_label = f"{args.scenario} — {scenario['description']}"
+
+    if _cli_overrides_counts(args) or not scenario:
+        num_vehicles = args.num_vehicles if args.num_vehicles is not None else 1
+        if args.num_sensors is not None and args.num_radars is None and args.num_noisy is None and args.num_adas is None:
+            sensor_specs = [
+                {'name': f'sensor{i + 1}', 'type': 'noisy'}
+                for i in range(args.num_sensors)
+            ]
+        else:
+            num_noisy = args.num_noisy if args.num_noisy is not None else 1
+            num_adas = args.num_adas if args.num_adas is not None else 1
+            num_radars = args.num_radars if args.num_radars is not None else 1
+            sensor_specs = sensor_specs_from_counts(num_noisy, num_adas, num_radars)
+    else:
+        num_vehicles = scenario['num_vehicles']
+        sensor_specs = sensor_specs_from_counts(
+            scenario.get('num_noisy', 1),
+            scenario.get('num_adas', 1),
+            scenario.get('num_radars', 1),
+        )
+
+    if args.sensor_type:
+        sensor_types = [spec['type'] for spec in sensor_specs]
+        for entry in args.sensor_type:
+            idx, typ = entry
+            idx = int(idx)
+            if 1 <= idx <= len(sensor_types):
+                sensor_types[idx - 1] = typ.lower()
+                sensor_specs[idx - 1]['type'] = typ.lower()
+
+    return num_vehicles, sensor_specs, scenario_routes, scenario_label
+
+
 def main():
     parser = argparse.ArgumentParser(
-        description="Simulation Manager — Eastern Canada airport flights and sensor fusion"
+        description="Simulation Manager — Eastern Canada airport flights and sensor fusion",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python simulation_manager.py -v 10 -r 7
+  python simulation_manager.py -v 5 -r 3 --num-noisy 0 --num-adas 0
+  python simulation_manager.py --scenario complex
+        """,
     )
-    parser.add_argument('-v', '--num-vehicles', type=int, default=1, help='Number of aircraft')
-    parser.add_argument('-s', '--num-sensors', type=int,
-                        help='Number of sensors (default: 3; one each: noisy, adas, tacan)')
+    parser.add_argument(
+        '-v', '--num-vehicles', type=int, default=None,
+        help='Number of aircraft (default: 1, or from --scenario)',
+    )
+    parser.add_argument(
+        '-r', '--num-radars', type=int, default=None,
+        help='Number of TACAN radar sensors, placed at airports YHZ→YUL→YYZ→… (default: 1)',
+    )
+    parser.add_argument(
+        '--num-noisy', type=int, default=None,
+        help='Number of high-rate noisy position sensors (default: 1)',
+    )
+    parser.add_argument(
+        '--num-adas', type=int, default=None,
+        help='Number of ADAS sensors with sparse updates (default: 1)',
+    )
+    parser.add_argument(
+        '--scenario',
+        type=str,
+        choices=scenario_names(),
+        help='Named preset (e.g. complex = -v 10 -r 7 --num-noisy 2 --num-adas 2)',
+    )
+    parser.add_argument(
+        '-s', '--num-sensors', type=int,
+        help='Legacy: total sensors, all noisy (use -r / --num-noisy / --num-adas instead)',
+    )
     parser.add_argument('--sensor-type', type=str, nargs=2, action='append', metavar=('IDX', 'TYPE'),
-                        help='Sensor type by index: noisy, adas, tacan')
+                        help='Override sensor type by index: noisy, adas, tacan')
     parser.add_argument('--tacan-pos', type=float, nargs=3, action='append', metavar=('IDX', 'LAT', 'LON'),
                         help='TACAN sensor index and radar position: --tacan-pos <idx> <lat> <lon>')
     parser.add_argument('--tacan-airport', type=str, nargs=2, action='append', metavar=('IDX', 'ICAO'),
@@ -81,20 +185,9 @@ def main():
     parser.add_argument('--web-port', type=int, default=8765, help='Port for --web visualizer')
     args = parser.parse_args()
 
-    num_vehicles = args.num_vehicles
-    if args.num_sensors is None:
-        num_sensors = 3
-        sensor_types = ['noisy', 'adas', 'tacan']
-    else:
-        num_sensors = args.num_sensors
-        sensor_types = ['noisy'] * num_sensors
-
-    if args.sensor_type:
-        for entry in args.sensor_type:
-            idx, typ = entry
-            idx = int(idx)
-            if 1 <= idx <= num_sensors:
-                sensor_types[idx - 1] = typ.lower()
+    num_vehicles, sensor_specs, scenario_routes, scenario_label = _resolve_layout(args)
+    num_sensors = len(sensor_specs)
+    num_radars = sum(1 for s in sensor_specs if s['type'] == 'tacan')
 
     tacan_pos_map = {}
     if args.tacan_pos:
@@ -104,19 +197,31 @@ def main():
     if args.tacan_airport:
         for entry in args.tacan_airport:
             idx, icao = entry
-            icao = icao.upper()
-            tacan_pos_map[int(idx)] = airport_position(icao)
+            tacan_pos_map[int(idx)] = airport_position(icao.upper())
+    for i, spec in enumerate(sensor_specs):
+        if spec.get('tacan_airport'):
+            tacan_pos_map[i + 1] = airport_position(spec['tacan_airport'].upper())
 
     init_time_scale(1.0)
     print(f"Eastern Canada airports: {', '.join(f'{k} ({v['name']})' for k, v in AIRPORTS.items())}")
-    print(f"Launching {num_vehicles} aircraft and {num_sensors} sensors at {args.speed_kts:.0f} kt cruise...")
+    if scenario_label:
+        print(f"Scenario: {scenario_label}")
+    print(
+        f"Launching {num_vehicles} aircraft, {num_radars} radar(s), "
+        f"{num_sensors} sensor(s) total at {args.speed_kts:.0f} kt cruise..."
+    )
 
     vehicle_info = []
     exited_logged = set()
     for i in range(num_vehicles):
-        origin_icao, dest_icao = DEFAULT_FLIGHT_ROUTES[i % len(DEFAULT_FLIGHT_ROUTES)]
+        if scenario_routes:
+            origin_icao, dest_icao, lat1, lon1, lat2, lon2, dist_km, duration_s = (
+                route_for_scenario_index(i, scenario_routes, args.speed_kts)
+            )
+        else:
+            origin_icao, dest_icao = DEFAULT_FLIGHT_ROUTES[i % len(DEFAULT_FLIGHT_ROUTES)]
+            lat1, lon1, lat2, lon2, dist_km, duration_s = route_for_vehicle_index(i)
         name = f"flight{i + 1}"
-        lat1, lon1, lat2, lon2, dist_km, duration_s = route_for_vehicle_index(i)
         p = launch_vehicle(i, origin_icao, dest_icao, name, args.speed_kts)
         processes.append(p)
         vehicle_info.append({
@@ -130,21 +235,32 @@ def main():
 
     sensor_info = []
     default_tacan_lat, default_tacan_lon = airport_position('YHZ')
-    for i, stype in enumerate(sensor_types):
+    for i, spec in enumerate(sensor_specs):
         idx = i + 1
-        name = f"sensor{i + 1}"
+        name = spec.get('name', f'sensor{idx}')
+        stype = spec['type'].lower()
+        noise_std = spec.get('noise_std')
         if stype == 'tacan':
             tlat, tlon = tacan_pos_map.get(idx, (default_tacan_lat, default_tacan_lon))
         else:
             tlat, tlon = None, None
-        p = launch_sensor(i, name, sensor_type=stype, tacan_lat=tlat, tacan_lon=tlon)
+        p = launch_sensor(
+            i, name, sensor_type=stype, tacan_lat=tlat, tacan_lon=tlon, noise_std=noise_std,
+        )
         processes.append(p)
-        loc = f' @ ({tlat:.3f}, {tlon:.3f})' if stype == 'tacan' else ''
+        loc = ''
+        if stype == 'tacan':
+            loc = f' @ ({tlat:.3f}, {tlon:.3f})'
+            for icao, ap in AIRPORTS.items():
+                if abs(ap['lat'] - tlat) < 0.01 and abs(ap['lon'] - tlon) < 0.01:
+                    loc = f' @ {icao}'
+                    break
+        extra = f', σ={noise_std:.0f} m' if stype == 'noisy' and noise_std is not None else ''
         sensor_info.append({
             'proc': p, 'name': name, 'type': stype, 'idx': i,
-            'tacan_lat': tlat, 'tacan_lon': tlon,
+            'tacan_lat': tlat, 'tacan_lon': tlon, 'noise_std': noise_std,
         })
-        print(f"  Sensor {name} ({stype}{loc})")
+        print(f"  Sensor {name} ({stype}{loc}{extra})")
 
     p = launch_fusion()
     processes.append(p)
@@ -211,6 +327,7 @@ def main():
                     new_proc = launch_sensor(
                         s['idx'], s['name'], sensor_type=s['type'],
                         tacan_lat=s.get('tacan_lat'), tacan_lon=s.get('tacan_lon'),
+                        noise_std=s.get('noise_std'),
                     )
                     old = s['proc']
                     s['proc'] = new_proc

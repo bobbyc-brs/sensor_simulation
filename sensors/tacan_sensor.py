@@ -64,7 +64,7 @@ def main():
                 angle_diff = 360 - angle_diff
             # Only publish if within tol and not already published this rotation
             if angle_diff <= tol and veh_id not in published_this_rotation:
-                msg = f"sensor,{args.name},{v['x']:.3f},{v['y']:.3f},{v['t']:.3f},TACAN"
+                msg = f"sensor,{args.name},{v['x']:.3f},{v['y']:.3f},{v['t']:.3f},TACAN,{veh_id}"
                 send_sock.sendto(msg.encode(), send_addr)
                 print(f"TACAN Broadcast: {msg}")
                 published_this_rotation.add(veh_id)

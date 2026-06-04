@@ -1,6 +1,11 @@
 """
 Eastern Canada airports, map extent, and great-circle flight geometry.
 Positions are WGS84 decimal degrees (lat, lon).
+
+Airport coordinates match the Canada Flight Supplement (CFS) reference points
+cited on each airport's Wikipedia article, cross-checked with the OurAirports
+open dataset (https://ourairports.com/data/). Refresh with:
+  python3 -m geo.fetch_airport_coords
 """
 import math
 from typing import Dict, List, Tuple
@@ -10,47 +15,48 @@ AIRPORTS: Dict[str, dict] = {
     'YYT': {
         'name': "St. John's",
         'city': "St. John's, NL",
-        'lat': 47.618,
-        'lon': -52.752,
+        'lat': 47.6186111,
+        'lon': -52.7525000,
     },
     'YHZ': {
         'name': 'Halifax',
         'city': 'Halifax, NS',
-        'lat': 44.881,
-        'lon': -63.508,
+        'lat': 44.8797222,
+        'lon': -63.5102778,
     },
     'YQB': {
         'name': 'Quebec City',
         'city': 'Quebec City, QC',
-        'lat': 46.791,
-        'lon': -71.393,
+        'lat': 46.7911111,
+        'lon': -71.3933333,
     },
     'YUL': {
         'name': 'Montreal',
         'city': 'Montreal, QC',
-        'lat': 45.471,
-        'lon': -73.741,
+        'lat': 45.4705556,
+        'lon': -73.7408333,
     },
     'YYZ': {
         'name': 'Toronto',
         'city': 'Toronto, ON',
-        'lat': 43.677,
-        'lon': -79.631,
+        'lat': 43.6772222,
+        'lon': -79.6305556,
     },
     'YOW': {
         'name': 'Ottawa',
         'city': 'Ottawa, ON',
-        'lat': 45.323,
-        'lon': -75.669,
+        'lat': 45.3225000,
+        'lon': -75.6691667,
     },
 }
 
 # Map view: Maritimes → Ontario/Quebec corridor (no Great Lakes west of Toronto).
+# ~10% wider than prior bounds so YYT (≈52.75°W) stays inside the frame.
 MAP_BOUNDS = {
-    'lon_min': -80.5,
-    'lon_max': -54.0,
-    'lat_min': 40.0,
-    'lat_max': 54.0,
+    'lon_min': -81.8,
+    'lon_max': -51.2,
+    'lat_min': 38.6,
+    'lat_max': 55.4,
 }
 
 # Default cruise speed for commercial jets (knots).

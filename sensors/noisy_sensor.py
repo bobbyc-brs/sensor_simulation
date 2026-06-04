@@ -40,6 +40,7 @@ def main():
                     continue
                 if len(parts) < 5 or parts[0] != 'vehicle':
                     continue
+                vehicle = parts[1]
                 lat = float(parts[2])
                 lon = float(parts[3])
                 t_prog = float(parts[4])
@@ -48,7 +49,10 @@ def main():
             dlat_sig, dlon_sig = meters_to_degree_noise(lat, args.noise_std)
             noisy_lat = lat + random.gauss(0, dlat_sig)
             noisy_lon = lon + random.gauss(0, dlon_sig)
-            msg = f"sensor,{args.name},{noisy_lat:.6f},{noisy_lon:.6f},{t_prog:.4f},{args.noise_std:.1f}"
+            msg = (
+                f"sensor,{args.name},{noisy_lat:.6f},{noisy_lon:.6f},{t_prog:.4f},"
+                f"{args.noise_std:.1f},{vehicle}"
+            )
             send_sock.sendto(msg.encode(), send_addr)
             print(f"Broadcast: {msg}")
         except socket.timeout:
