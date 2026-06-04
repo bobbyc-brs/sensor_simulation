@@ -27,10 +27,6 @@ class NaturalEarthMap:
         m.draw(ax)
         fig.tight_layout()
 
-        # Pixel coordinate conversion (requires finalised layout):
-        px, py = m.to_pixel(45.47, -73.74, ax)   # Montreal → (x, y) from top-left
-        lat, lon = m.from_pixel(282, 762, ax)      # pixel → geographic
-
     Natural Earth data is downloaded once and cached by cartopy (typically in
     ~/.local/share/cartopy/).
     """
@@ -141,34 +137,6 @@ class NaturalEarthMap:
         ax.set_ylabel('Latitude')
         ax.set_title(title)
         ax.grid(True, linestyle=':', alpha=0.4, color='#445566', zorder=0)
-
-    # ------------------------------------------------------------------
-    # Coordinate conversion
-    # ------------------------------------------------------------------
-
-    def to_pixel(self, lat: float, lon: float, ax) -> Tuple[float, float]:
-        """
-        Convert (lat, lon) to pixel (x, y) measured from the top-left corner
-        of the figure. Triggers a layout pass to ensure the axes transform is
-        finalised (equivalent to what occurs when saving the figure).
-
-        Returns floats; round to int for integer pixel positions.
-        """
-        fig = ax.get_figure()
-        fig.canvas.draw()
-        display_x, display_y = ax.transData.transform([(lon, lat)])[0]
-        fig_h_px = fig.get_figheight() * fig.dpi
-        return float(display_x), float(fig_h_px - display_y)
-
-    def from_pixel(self, x: float, y: float, ax) -> Tuple[float, float]:
-        """
-        Convert pixel (x, y) from the top-left of the figure to (lat, lon).
-        """
-        fig = ax.get_figure()
-        fig.canvas.draw()
-        fig_h_px = fig.get_figheight() * fig.dpi
-        lon, lat = ax.transData.inverted().transform([(x, fig_h_px - y)])[0]
-        return float(lat), float(lon)
 
     # ------------------------------------------------------------------
     # Convenience
