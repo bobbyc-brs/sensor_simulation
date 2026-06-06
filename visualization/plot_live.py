@@ -19,6 +19,8 @@ class LivePlotState:
         self.last_data = {}
         # vehicle -> sensor_name -> latest sensor msg for that aircraft
         self.sensor_latest = defaultdict(dict)
+        self._color_map = colormaps['tab20']
+        self._name_colors = {}
 
     def clear(self):
         self.sensor_history.clear()
@@ -27,8 +29,6 @@ class LivePlotState:
         self.last_data.clear()
         self.sensor_latest.clear()
         self._name_colors.clear()
-        self._color_map = colormaps['tab20']
-        self._name_colors = {}
 
     def ingest(self, q):
         while not q.empty():
