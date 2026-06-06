@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Restart the simulation with 6 aircraft from the project root.
+cd "$(dirname "$0")/.."
+pkill -f "simulation_manager|vehicle_sim|noisy_sensor|adas_sensor|tacan_sensor|fusion_app|web_visualizer" 2>/dev/null
+sleep 2
+python3 simulation_manager.py -v 6 "$@"
