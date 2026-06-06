@@ -1,7 +1,9 @@
 # Runtime dependency for map rendering (web and desktop visualizers).
 matplotlib>=3.8
 
-# Natural Earth basemap (NaturalEarthMap). Pulls in shapely as a dependency.
+# Natural Earth basemap (NaturalEarthMap).
+# Pillow: raster image crop/load. cartopy+shapely: vector fallback if no raster image present.
+Pillow>=10.0
 cartopy>=0.22
 
 # All other components use the Python standard library only (socket, subprocess, http.server, etc.).
