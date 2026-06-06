@@ -70,23 +70,32 @@ def main():
 
     time.sleep(1)
     start_time = time.time()
+    arrived = False
     while True:
         time_scale = read_time_scale()
         elapsed = time.time() - start_time
         t = min(elapsed * time_scale / duration, 1.0) if duration > 0 else 1.0
         lat, lon = interpolate_great_circle(lat1, lon1, lat2, lon2, t)
-        alt_ft = cruise_altitude_ft(t)
+
+        if t >= 1.0:
+            if not arrived:
+                print(f"Aircraft {args.name} arrived at {dest_icao or 'destination'}. Parked.")
+                arrived = True
+            alt_ft = 0
+            speed = 0
+        else:
+            alt_ft = cruise_altitude_ft(t)
+            speed = args.speed_kts
+
         # vehicle,callsign,lat,lon,progress,heading_deg,alt_ft,speed_kts
         msg = (
             f"vehicle,{args.name},{lat:.6f},{lon:.6f},{t:.4f},"
-            f"{bearing:.1f},{alt_ft:.0f},{args.speed_kts:.0f}"
+            f"{bearing:.1f},{alt_ft:.0f},{speed:.0f}"
         )
         sock.sendto(msg.encode(), addr)
-        print(f"Broadcast: {msg}")
-        if t >= 1.0:
-            print(f"Aircraft {args.name} arrived at destination.")
-            break
-        time.sleep(args.interval / max(time_scale, 0.01))
+        if not arrived:
+            print(f"Broadcast: {msg}")
+        time.sleep(args.interval / max(time_scale, 0.01) if not arrived else args.interval)
 
 if __name__ == "__main__":
     main()
