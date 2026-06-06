@@ -19,6 +19,14 @@ class LivePlotState:
         self.last_data = {}
         # vehicle -> sensor_name -> latest sensor msg for that aircraft
         self.sensor_latest = defaultdict(dict)
+
+    def clear(self):
+        self.sensor_history.clear()
+        self.vehicle_history.clear()
+        self.fused_history.clear()
+        self.last_data.clear()
+        self.sensor_latest.clear()
+        self._name_colors.clear()
         self._color_map = colormaps['tab20']
         self._name_colors = {}
 

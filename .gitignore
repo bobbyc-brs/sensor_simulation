@@ -50,3 +50,9 @@ coverage.xml
 
 # Runtime simulation control (time scale from web UI)
 .sim_time_scale.json
+
+# Large raster basemap files — place in basemap/ manually, not committed to git
+basemap/*.png
+basemap/*.tif
+basemap/*.tiff
+basemap/*.aux.xml

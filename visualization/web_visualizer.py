@@ -23,6 +23,7 @@ _SCALE_BUTTONS = ''.join(
 )
 
 _AIRPORT_TOGGLE = '<button type="button" id="airports-btn" class="toggle-btn active" onclick="toggleAirports()">&#9992; Airports</button>'
+_CLEAR_BUTTON = '<button type="button" class="toggle-btn" style="margin-left:1.5rem;background:#5a2d2d;border-color:#c0392b;" onclick="clearTracks()">&#10005; Clear tracks</button>'
 
 INDEX_HTML = f"""<!DOCTYPE html>
 <html>
@@ -57,6 +58,7 @@ INDEX_HTML = f"""<!DOCTYPE html>
     {_SCALE_BUTTONS}
     <span id="scale-label">1×</span>
     {_AIRPORT_TOGGLE}
+    {_CLEAR_BUTTON}
   </div>
   <p class="hint">Blue = aircraft truth, dots = sensors, ★ = fused. Left: all tracks; right: fused on map. Higher scale = faster flight.</p>
   <img id="frame" alt="live map" src="/live.png">
@@ -76,6 +78,9 @@ INDEX_HTML = f"""<!DOCTYPE html>
     }});
     setActiveScale(1);
     let showAirports = true;
+    function clearTracks() {{
+      fetch('/clear', {{ method: 'POST' }});
+    }}
     function toggleAirports() {{
       showAirports = !showAirports;
       document.getElementById('airports-btn').classList.toggle('active', showAirports);
@@ -155,6 +160,11 @@ class _Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         global _show_airports
         parsed = urlparse(self.path)
+        if parsed.path == '/clear':
+            _state.clear()
+            self.send_response(204)
+            self.end_headers()
+            return
         if parsed.path == '/airports':
             qs = parse_qs(parsed.query)
             _show_airports = qs.get('show', ['1'])[0] != '0'
