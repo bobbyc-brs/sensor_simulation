@@ -1,6 +1,6 @@
 # CR-005 — GUI test and demo support: symbol gallery, manoeuvres, DR send policy, pcap replay, demo tour
 **Date:** 2026-11-10  **From:** moving-map-display  **Target:** Sensors
-**Status:** Pending
+**Status:** Processed — 72897b4
 
 ### Proposed change
 
@@ -82,3 +82,89 @@ python -m cgf.replay recordings/ottawa-mixed.pcap --speed 1
   25 NM of YOW so it fits a 25 NM display.
 - If item 3 changes default behaviour, keep `update_s` as the default and make
   `dead_reckoning` opt-in, so CR-003's timing tests stay valid.
+
+### Processed — Sensors, 2026-11-11, commit 72897b4
+
+All five items are done, in priority order. The checks used moving-map's
+prebuilt GUI at 7bf85c8, rebuilt at 23:43 — Sensors ran it from
+`target/debug/` and built nothing in that tree — plus `listen`, on private
+ports 3803–3804.
+
+1. **`symbol-gallery.json`** — 73 entities: a hovering ownship plus 4 forces × 18 types.
+   - **Types:** the 12 catalogue types and the 6 raw types as filed.
+   - **Generated:** `devel-scripts/make-symbol-gallery.py` writes the file.
+   - **Layout, differing from the CR:** 18 columns at about 0.3 NM is 5.1 NM
+     wide, too wide for `--range-nm 2`. So the grid is two bands of 9 columns,
+     with the ownship between them.
+   - **Spacing, differing from the CR:** columns are 0.4 NM apart and rows
+     0.35 NM. At 0.3 NM the GUI's ~45 px symbols touched. The furthest cell is
+     about 2.4 NM out, and a 1280×800 GUI at 2 NM shows about ±2.6 NM vertically.
+   - **Screenshot** (`gui --ownship 1.42.1 --range-nm 2`): every one of the 72
+     cells shows, with blue/red/green/yellow rows and rectangle/diamond/square/
+     quatrefoil frames. The submarine has the subsurface frame and the UAV,
+     ship, infantry and `?` icons show, with 0 bad PDUs.
+2. **`ownship-manoeuvres.json`** — this needed two new waypoint forms:
+   - **`{"orbit": {...}}`** expands to a point every 30° round a closed circle.
+   - **`yaw_dps`** turns the heading on the spot during a hold, with no roll.
+
+   Its 16-minute loop, stepped offline:
+   - Right turns total 1363° and left turns 976°, so both directions get full orbits.
+   - The heading crosses north 9 times, including the 355° → 005° leg.
+   - The hover yaws 359° at zero speed. Pitch reaches 20° and roll 23.7°.
+
+   A track-up screenshot mid-orbit (heading 129°) put all four references at
+   the correct relative bearings, with the north arrow pointing lower left.
+3. **Dead-reckoning send policy** — `"send": "dead_reckoning"`, opt-in per
+   entity or in `defaults`.
+   - **Rule:** send when the linear FPW extrapolation of the last PDU, ECEF
+     position plus ECEF velocity × dt, is more than `dr_threshold_m` (1 m) off,
+     or heading is more than `dr_threshold_deg` (3°) off. Also send a heartbeat
+     every `heartbeat_s` (5 s).
+   - **On the wire:** the PDU declares dead-reckoning algorithm 2 (FPW).
+   - **Default unchanged:** fixed `update_s` stays the default, and its output is
+     byte-identical, with algorithm 0.
+   - **Measured:** parked, exactly one PDU every 5.0 s. Steady straight motion
+     sends 5 s heartbeats only. An orbiting helicopter averages a 1.4 s gap.
+     Unit tests cover all three.
+4. **`cgf.replay`** — sends each UDP payload byte for byte at its capture time
+   offset ÷ `--speed`, with no restamping and no faults. It also takes `--loop`,
+   `--gap` and `--only-port`.
+   - **Reads:** classic libpcap in both byte orders, µs and ns, with Ethernet
+     (VLAN tags skipped), raw IPv4 and Linux SLL/SLL2. IP fragments are skipped
+     and counted.
+   - **pcapng:** refused, with the `editcap -F pcap` command to convert it.
+   - **Measured:** `ottawa-mixed.pcap` at ×4, captured on the receiving side, is
+     **byte-identical to `ottawa-mixed.bin`** (554/554). Timing was within 0.01 %
+     of span ÷ speed, and `lifecycle.pcap` at ×4 within 0.00 %.
+   - **Live at ×1 into `listen`:** the same 13 entities, 554 sent and 554
+     received, `malformed=0`, all removed as recorded.
+5. **`demo-tour.json`** — a 600 s cycle with a new scenario-level `"repeat": true`.
+   - **Restart:** entities present in both cycles keep their IDs and simply
+     reposition. Only those absent at the new start get a Remove Entity.
+   - **Route:** the ownship flies YOW → Parliament → over the river (30 s hover,
+     6°/s yaw) → Rockcliffe → YOW, and is parked at YOW by 591 s.
+   - **Events:** VIPER1 appears at 100 s, comes within 1.8 km at about 221 s, and
+     is removed at 450 s. A friendly convoy runs throughout. UAV-X goes silent at
+     300 s, and CAR2 is removed at 360 s. All of it stays within 15.3 NM of YOW.
+   - **Send policy:** everything except the ownship (0.2 s fixed) sends by dead
+     reckoning.
+   - **Live 640 s into `listen`:** every event happened at its scripted time.
+     The 600 s restart removed exactly CONVOY-AFV and CONVOY-TNK, CAR2 and
+     UAV-X reappeared, and the ownship stayed tracked without a gap. 4858 sent,
+     4858 received, `malformed=0`, 6.6–10.3 PDU/s.
+   - **GUI screenshot at 222 s** shows VIPER1 ahead and closing, the convoy,
+     traffic, and UAV-X's orbit trail.
+
+**Also:** a parked fixed-wing entity now starts at rest; it used to start at
+cruise speed and drift.
+
+**Tests:** 74/74. They cover gallery coverage, the manoeuvres, orbit and yaw
+validation, the DR policy (5.0 ± 0.1 s heartbeat, turning, the algorithm byte),
+pcap reading of every link type, replay timing within 2 %, and the demo's events
+and restart.
+
+**Not done / notes:**
+- **GUI checks are screenshots.** The rotation through north was checked as one
+  track-up frame plus offline heading data, not as continuous video.
+- **Convoy spacing:** the three vehicles are about 300 m apart, so at 5 NM
+  their symbols and labels overlap.
