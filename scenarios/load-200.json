@@ -1,0 +1,18 @@
+{
+  "name": "load-200",
+  "description": "CR-003: 200 entities within 100 NM of YOW at 1 s updates (~200 PDU/s) — the ownship helicopter plus 199 seeded entities cycling through every CR-002 type. PDU timestamps carry the send time.",
+  "defaults": {"site": 1, "app": 42, "update_s": 1.0},
+  "entities": [
+    {
+      "callsign": "HELO1", "type": "utility_helicopter", "force": "friendly", "entity": 1,
+      "ownship": true, "speed_kts": 90, "loop": true,
+      "waypoints": [[45.3225, -75.6692, 300], [45.4236, -75.7009, 300], [45.3720, -75.5200, 300]]
+    }
+  ],
+  "generate": [
+    {
+      "count": 199, "seed": 2026, "centre": [45.3225, -75.6692], "radius_nm": 100,
+      "first_entity": 2, "callsign_prefix": "L", "update_s": 1.0
+    }
+  ]
+}

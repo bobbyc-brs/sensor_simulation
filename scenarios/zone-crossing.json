@@ -1,0 +1,32 @@
+{
+  "name": "zone-crossing",
+  "description": "CR-003: ownship helicopter flies west across 78°W (UTM zone 18 → 17) near Bancroft/Maynooth, ~30 s after start, turns and crosses back east; entities on both sides of the line.",
+  "defaults": {"site": 1, "app": 42, "update_s": 1.0},
+  "entities": [
+    {
+      "callsign": "HELO1", "type": "utility_helicopter", "force": "friendly", "entity": 1,
+      "ownship": true, "speed_kts": 120, "update_s": 0.2, "loop": true,
+      "waypoints": [[45.0500, -77.9900, 300], [45.0500, -78.0300, 300], [45.0500, -77.9700, 300]]
+    },
+    {
+      "callsign": "EAST-CAR", "type": "car", "force": "neutral", "entity": 2,
+      "speed_kts": 40, "loop": true,
+      "waypoints": [[45.0400, -77.9000, 350], [45.0600, -77.9300, 350]]
+    },
+    {
+      "callsign": "EAST-HRS", "type": "horse", "force": "neutral", "entity": 3,
+      "speed_kts": 6, "loop": true,
+      "waypoints": [[45.0650, -77.9600, 350], [45.0670, -77.9550, 350]]
+    },
+    {
+      "callsign": "WEST-TRK", "type": "cargo_truck", "force": "neutral", "entity": 4,
+      "speed_kts": 40, "loop": true,
+      "waypoints": [[45.0400, -78.0500, 350], [45.0600, -78.0800, 350]]
+    },
+    {
+      "callsign": "WEST-TNK", "type": "tank", "force": "opposing", "entity": 5,
+      "speed_kts": 18, "loop": true,
+      "waypoints": [[45.0350, -78.1000, 350], [45.0380, -78.1100, 350]]
+    }
+  ]
+}

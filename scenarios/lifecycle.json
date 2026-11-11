@@ -1,0 +1,32 @@
+{
+  "name": "lifecycle",
+  "description": "CR-003: entity lifecycle — late appearance (20 s), silent drop-out (25 s, no Remove), Remove at 30 s then reappear with the same ID at 40 s, and duplicate entity numbers on two sites (1.42.5, 2.42.5).",
+  "defaults": {"site": 1, "app": 42, "update_s": 1.0},
+  "entities": [
+    {
+      "callsign": "LATE", "type": "car", "force": "neutral", "entity": 1,
+      "speed_kts": 30, "loop": true, "start_s": 20,
+      "waypoints": [[45.4100, -75.7000, 70], [45.4150, -75.6900, 70]]
+    },
+    {
+      "callsign": "SILENT", "type": "cargo_truck", "force": "neutral", "entity": 2,
+      "speed_kts": 30, "loop": true, "stop_s": 25, "on_stop": "silent",
+      "waypoints": [[45.4000, -75.7000, 70], [45.4050, -75.6900, 70]]
+    },
+    {
+      "callsign": "REMOVED", "type": "tank", "force": "friendly", "entity": 3,
+      "speed_kts": 15, "loop": true, "stop_s": 30, "on_stop": "remove", "restart_s": 40,
+      "waypoints": [[45.3900, -75.7000, 70], [45.3950, -75.6900, 70]]
+    },
+    {
+      "callsign": "DUP-A", "type": "afv", "force": "opposing", "id": [1, 42, 5],
+      "speed_kts": 15, "loop": true,
+      "waypoints": [[45.3800, -75.7000, 70], [45.3850, -75.6900, 70]]
+    },
+    {
+      "callsign": "DUP-B", "type": "afv", "force": "unknown", "id": [2, 42, 5],
+      "speed_kts": 15, "loop": true,
+      "waypoints": [[45.3700, -75.7000, 70], [45.3750, -75.6900, 70]]
+    }
+  ]
+}

@@ -5,6 +5,10 @@ them bare (--dest), and simulation_manager.py adds them prefixed (--dis-dest)
 and forwards them, so the three can never drift apart.
 """
 import socket
+import struct
+import time
+
+from gateways.dis_pdu import relative_timestamp
 
 OUTPUT_OPTIONS = (
     ('dest', {'default': '127.0.0.1',
@@ -36,8 +40,19 @@ def forward_output_args(args, prefix=''):
     return out
 
 
+def stamp(pdu, unix_time):
+    """Copy of pdu with its header timestamp set to the DIS relative time of unix_time."""
+    out = bytearray(pdu)
+    struct.pack_into('>I', out, 4, relative_timestamp(unix_time))
+    return bytes(out)
+
+
 class DisOutput:
-    """Sends PDUs over UDP, one datagram per PDU."""
+    """Sends PDUs over UDP, one datagram per PDU.
+
+    Every PDU's timestamp is set at the moment it is sent (CR-003), so a receiver
+    can measure its own PDU-to-display latency against the send time.
+    """
 
     def __init__(self, dest='127.0.0.1', port=3000):
         self.dest = (dest, port)
@@ -56,7 +71,7 @@ class DisOutput:
     def send(self, pdus):
         """Send a batch of PDUs (bytes)."""
         for pdu in pdus:
-            self.sock.sendto(pdu, self.dest)
+            self.sock.sendto(stamp(pdu, time.time()), self.dest)
             self.pdus_sent += 1
 
     def close(self):

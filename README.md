@@ -223,7 +223,12 @@ cargo run -- listen --port 3000 --ownship 1.42.1 --range-nm 25 --seconds 60
 `ottawa-mixed.json` flies a friendly utility helicopter (ownship) over Ottawa —
 a 180° reversal, then a 20 s hover — among cars, trucks, buses, a school bus,
 horses, tanks, an AFV, an attack helicopter, a patrol craft and an airliner, on
-all four sides. File format, entity-type catalogue and the motion model:
+all four sides. Test-case scenarios for moving-map (CR-003) cover entity
+lifecycle (late, silent, removed and re-added, duplicate numbers on two sites),
+a 200-entity load at 200 PDU/s, and a UTM zone crossing at 78°W. Every PDU
+carries its send time in the timestamp field, for latency measurement.
+
+File format, entity-type catalogue, the scenario list and the motion model:
 [`scenarios/README.md`](scenarios/README.md).
 
 ## Visualization

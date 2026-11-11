@@ -2,7 +2,8 @@
 
 One process for all entities (CR-002/CR-003). Each entity is stepped every
 STEP_S, sent every update_s while visible, and removed with a Remove Entity PDU
-at its stop_s and on exit (SIGINT/SIGTERM or the scenario's duration_s).
+at its stop_s (unless on_stop is "silent") and on exit (SIGINT/SIGTERM or the
+scenario's duration_s). An entity with restart_s reappears then, same ID.
 
     python -m cgf.runner scenarios/ottawa-mixed.json [--dest 127.0.0.1 --port 3000]
 """
@@ -17,6 +18,7 @@ from gateways.dis_output import DisOutput, add_output_args
 from gateways.dis_pdu import pack_entity_state, pack_remove_entity
 
 STEP_S = 0.1
+RATE_REPORT_S = 10.0
 
 
 def dotted(entity_id):
@@ -33,8 +35,10 @@ class Track:
         self.next_send = spec['start_s'] + phase_s
 
     def active_at(self, t):
-        stop = self.spec['stop_s']
-        return t >= self.spec['start_s'] and (stop is None or t < stop)
+        s = self.spec
+        if s['restart_s'] is not None and t >= s['restart_s']:
+            return True
+        return t >= s['start_s'] and (s['stop_s'] is None or t < s['stop_s'])
 
     def entity_state(self, exercise):
         m, s = self.mover, self.spec
@@ -64,8 +68,11 @@ def tick(tracks, t, exercise):
                     track.next_send = t + spec['update_s']
         elif track.visible:
             track.visible = False
-            pdus.append(pack_remove_entity(spec['id'], exercise=exercise))
-            log.append(f'[CGF] t={t:6.1f}s  remove {dotted(spec["id"])} {spec["callsign"]}')
+            if spec['on_stop'] == 'remove':
+                pdus.append(pack_remove_entity(spec['id'], exercise=exercise))
+                log.append(f'[CGF] t={t:6.1f}s  remove {dotted(spec["id"])} {spec["callsign"]}')
+            else:
+                log.append(f'[CGF] t={t:6.1f}s  silent {dotted(spec["id"])} {spec["callsign"]} (no Remove Entity)')
     return pdus, log
 
 
@@ -112,6 +119,7 @@ def main():
 
     start = time.monotonic()
     t = 0.0
+    window_pdus, window_start, next_report = 0, start, RATE_REPORT_S
     while duration is None or t < duration:
         t += STEP_S
         delay = start + t - time.monotonic()
@@ -122,6 +130,14 @@ def main():
             print(line)
         if pdus:
             output.send(pdus)
+            window_pdus += len(pdus)
+        if t >= next_report - 1e-9:
+            now = time.monotonic()
+            visible = sum(1 for tr in tracks if tr.visible)
+            lag = now - (start + t)
+            print(f'[CGF] t={t:6.1f}s  {window_pdus / (now - window_start):6.1f} PDU/s  '
+                  f'{visible} visible  lag {lag * 1000:4.0f} ms')
+            window_pdus, window_start, next_report = 0, now, next_report + RATE_REPORT_S
     shutdown()
 
 

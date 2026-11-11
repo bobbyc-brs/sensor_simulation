@@ -158,5 +158,96 @@ class VehicleSimHeadingTest(unittest.TestCase):
         self.assertEqual(current_heading(lat2, lon2, lat2, lon2, 123.0), 123.0)
 
 
+
+def run_ticks(tracks, seconds):
+    """Tick tracks for seconds; returns [(t, pdu_type, (site, app, entity))]."""
+    import struct
+    sent, t = [], 0.0
+    while t < seconds - 1e-9:
+        t = round(t + STEP_S, 6)
+        pdus, _ = tick(tracks, t, exercise=1)
+        for p in pdus:
+            offset = 12 if p[2] == 1 else 18          # Entity State ID, or Remove's receiving ID
+            sent.append((t, p[2], struct.unpack_from('>HHH', p, offset)))
+    return sent
+
+
+class LifecycleTest(unittest.TestCase):
+    """CR-003 scenarios/lifecycle.json, stepped offline."""
+
+    @classmethod
+    def setUpClass(cls):
+        sc = load_scenario('scenarios/lifecycle.json')
+        tracks = [Track(spec, 0.0) for spec in sc['entities']]
+        cls.sent = run_ticks(tracks, 60.0)
+
+    def times(self, entity_id, pdu_type):
+        return [t for t, kind, eid in self.sent if eid == entity_id and kind == pdu_type]
+
+    def test_late_entity_first_sent_at_20s(self):
+        self.assertEqual(self.times((1, 42, 1), 1)[0], 20.0)
+
+    def test_silent_entity_stops_without_remove(self):
+        self.assertLess(self.times((1, 42, 2), 1)[-1], 25.0)
+        self.assertEqual(self.times((1, 42, 2), 12), [])
+
+    def test_removed_entity_returns_with_same_id(self):
+        state = self.times((1, 42, 3), 1)
+        self.assertEqual(self.times((1, 42, 3), 12), [30.0])
+        self.assertFalse([t for t in state if 30.0 <= t < 40.0])
+        self.assertEqual(min(t for t in state if t >= 40.0), 40.0)
+
+    def test_duplicate_numbers_on_two_sites(self):
+        self.assertGreater(len(self.times((1, 42, 5), 1)), 50)
+        self.assertGreater(len(self.times((2, 42, 5), 1)), 50)
+
+    def test_restart_needs_stop(self):
+        raw = copy.deepcopy(MINIMAL)
+        raw['entities'][0]['restart_s'] = 10
+        with self.assertRaises(ScenarioError):
+            build_scenario(raw)
+
+
+class GeneratorTest(unittest.TestCase):
+    def test_load_200(self):
+        sc = load_scenario('scenarios/load-200.json')
+        entities = sc['entities']
+        self.assertEqual(len(entities), 200)
+        self.assertEqual({e['type'] for e in entities}, set(ENTITY_TYPES.values()))
+        self.assertEqual({e['force'] for e in entities}, {0, 1, 2, 3})
+        self.assertTrue(all(e['update_s'] == 1.0 for e in entities))
+        for e in entities:
+            for wp in e['waypoints']:
+                self.assertLess(distance_m(*YOW, wp['lat'], wp['lon']), 100 * NM, e['callsign'])
+
+    def test_seeded_and_deterministic(self):
+        a = load_scenario('scenarios/load-200.json')['entities']
+        b = load_scenario('scenarios/load-200.json')['entities']
+        self.assertEqual(a, b)
+
+    def test_rate_is_200_per_second(self):
+        sc = load_scenario('scenarios/load-200.json')
+        n = len(sc['entities'])
+        tracks = [Track(spec, spec['update_s'] * i / n) for i, spec in enumerate(sc['entities'])]
+        sent = run_ticks(tracks, 20.0)
+        per_second = [sum(1 for t, kind, _ in sent if kind == 1 and s < t <= s + 1) for s in range(5, 20)]
+        self.assertTrue(all(195 <= c <= 205 for c in per_second), per_second)
+
+
+class ZoneCrossingTest(unittest.TestCase):
+    def test_ownship_crosses_78w_and_entities_straddle(self):
+        sc = load_scenario('scenarios/zone-crossing.json')
+        tracks = [Track(spec, 0.0) for spec in sc['entities']]
+        heli = tracks[0].mover
+        lons = []
+        for _ in range(int(60 / STEP_S)):
+            for track in tracks:
+                track.mover.step(STEP_S)
+            lons.append(heli.lon)
+        self.assertGreater(lons[0], -78.0)
+        self.assertLess(min(lons), -78.0)
+        others = [t.mover.lon for t in tracks[1:]]
+        self.assertTrue(any(lon > -78.0 for lon in others) and any(lon < -78.0 for lon in others))
+
 if __name__ == '__main__':
     unittest.main()
