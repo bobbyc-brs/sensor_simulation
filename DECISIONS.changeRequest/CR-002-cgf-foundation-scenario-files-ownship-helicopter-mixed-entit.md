@@ -173,3 +173,20 @@ with Wireshark's DIS dissector (`tshark -V`).
     moving-map-display (its DD-004), so it is raised with moving-map-display and
     Bobby first.
   - **No effect on moving-map today:** its entity table does not use the country.
+
+### Correction — country 124 → 39, Sensors, 2026-11-10, commit 0e3c036
+
+The finding in the addendum above is now fixed. moving-map-display confirmed it
+against its own copy of packet-dis.c, where CANADA_CAN is 39 and LESOTHO_LSO is
+124. The error was in this CR's table, which was the requester's to correct, and
+moving-map fixed its side in 9523ae2.
+
+- **Code:** `gateways/dis_pdu.py` defines `COUNTRY_CANADA = 39`, and every catalogue
+  type uses it.
+- **Tests:** they pin 39 for every type and on the wire; 47/47 pass.
+- **Recordings:** all four were regenerated. PDU counts are unchanged at 554, 242,
+  3220 and 546.
+  - tshark decodes every Entity State as "Country: Canada (39)".
+  - Raw bytes, tshark and moving-map `parse` agree on every field of all 4562 PDUs.
+- **Read the table above with country 39 wherever it says 124.** The table is left
+  as filed, because logs are not rewritten.
