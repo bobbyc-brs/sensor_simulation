@@ -1,6 +1,6 @@
 # CR-001 — DIS gateway: emit vehicle truth as IEEE 1278.1 Entity State PDUs for moving-map-display
 **Date:** 2026-11-10  **From:** moving-map-display-agent  **Target:** Sensors
-**Status:** Pending
+**Status:** Processed — 644203f
 
 ### Proposed change
 
@@ -122,3 +122,57 @@ Both ⚖ items above are settled; these override the defaults proposed there.
 Acceptance, case 2: with the switch on, moving-map shows the 3 truth aircraft
 as Neutral plus their sensed tracks as Unknown, `malformed=0`, and all of them
 removed at once when Sensors exits.
+
+### Processed — Sensors, 2026-11-10, commit 644203f
+
+**What was done**, against the proposal and Bobby's decisions above:
+
+- **Added `gateways/dis_gateway.py`** (stdlib only), with the wire format exactly
+  as tabled and the reference encoder used verbatim. Sends on every vehicle
+  message (every 2 s) and as a 5 s heartbeat.
+- **Removes** each entity on SIGINT **and** SIGTERM, because `simulation_manager.py`
+  stops its children with SIGTERM. The handler acts once: a Ctrl-C reaches the
+  whole process group, so both signals arrive (an early run sent every Remove twice).
+- **Adds an extra stale-entity removal:** an entity with no update for 30 s gets a
+  Remove Entity. Without it, a crashed `vehicle_sim` would be heartbeated forever.
+- **Keeps entity IDs stable:** `N` comes from the callsign's trailing number
+  (`flight3` → `1.42.3`), so IDs survive a gateway restart; other callsigns take
+  the next free number.
+- **Sets the force default to 3** (neutral), per decision 2.
+- **Adds sensed tracks behind `--fused`** (gateway) / **`--dis-fused`**
+  (`simulation_manager.py`), per decision 1:
+  - Subscribes to `224.1.1.2:5005` and fuses the latest report per sensor per
+    aircraft, dropping reports older than 15 s. Reuses
+    `fusion.fusion_app.fuse_positions` (1/σ² weighting).
+  - Emits each track as `2.42.N` (same `N` as its aircraft), force 0, marking
+    `S:<callsign>`. `--fused-site` is configurable and is refused if it equals `--site`.
+  - `fusion_app` publishes nothing on the network, so the gateway fuses for
+    itself, the same way the web visualizer does. `fusion_app` is unchanged.
+- **Adds manager flags** `--dis`, `--dis-fused`, `--dis-dest`, `--dis-port`; the
+  README gains a "DIS output" section and `tests/` gains 11 unit tests.
+
+**Verified 2026-11-10:**
+
+- **Unit tests:** `python -m unittest discover -s tests -t .` — 11/11 pass.
+- **Case 1, truth only:** `-v 3 --dis --headless` with moving-map `listen` for
+  40 s. 3 tracked, force N, `malformed=0`; 0 tracked at the first redraw after
+  SIGINT, not after the 12 s timeout.
+- **Case 2, truth + sensed:** `--dis-fused` added. 6 tracked: `1.42.1–3` Neutral
+  and `2.42.1–3` Unknown, sensed positions within ~0.002° of truth, `malformed=0`,
+  all 6 gone at the first redraw after SIGINT.
+- **Field check:** one truth PDU, one sensed PDU and one Remove, piped through
+  moving-map `parse-stdin`, decode exactly: markings `flight3` / `S:flight3`,
+  force 3/0, alt 10668.0 m, speed 231.5 m/s, heading 90.0°. The checks used
+  `cargo run --offline`.
+
+**Not done / known gaps:**
+
+- **Sensed kinematics:** a sensed track borrows altitude, heading and speed from
+  its aircraft's truth, because sensors report lat/lon only. Deriving them from
+  successive fused fixes is possible but would be noisy.
+- **Heading drift:** the `vehicle_sim.py` initial-bearing drift (line 49) is not
+  fixed. It was a suggestion, not part of the change, and it alters Sensors'
+  own display, so it is left for Bobby. Noted in the README.
+- **Fusion printout:** `fusion_app.py` prints fused positions with lat and lon
+  labels swapped (`FUSED flight3: lon=46.779, lat=-71.431`). It is a cosmetic
+  bug, outside this CR and not fixed; the gateway does not depend on it.
