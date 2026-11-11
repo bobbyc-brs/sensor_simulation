@@ -53,9 +53,9 @@ class ScenarioFileTest(unittest.TestCase):
 
     def test_numeric_type_and_explicit_id(self):
         raw = copy.deepcopy(MINIMAL)
-        raw['entities'][0].update(type=[1, 2, 124, 20, 0, 0, 0], id=[2, 42, 5])
+        raw['entities'][0].update(type=[1, 2, 39, 20, 0, 0, 0], id=[2, 42, 5])
         e = build_scenario(raw)['entities'][0]
-        self.assertEqual(e['type'], (1, 2, 124, 20, 0, 0, 0))
+        self.assertEqual(e['type'], (1, 2, 39, 20, 0, 0, 0))
         self.assertEqual(e['motion'], 'helicopter')
         self.assertEqual(e['id'], (2, 42, 5))
 

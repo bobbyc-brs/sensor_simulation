@@ -24,7 +24,7 @@ class AircraftPduTest(unittest.TestCase):
         self.assertEqual(len(pdu), 144)
         self.assertEqual(struct.unpack_from('>HHH', pdu, 12), (1, 42, 3))
         self.assertEqual(pdu[18], 3)
-        self.assertEqual(struct.unpack_from('>BBHBBBB', pdu, 20), (1, 2, 124, 87, 0, 0, 0))
+        self.assertEqual(struct.unpack_from('>BBHBBBB', pdu, 20), (1, 2, 39, 87, 0, 0, 0))
         self.assertEqual(pdu[128:140], b'\x01flight3\0\0\0\0')
 
 

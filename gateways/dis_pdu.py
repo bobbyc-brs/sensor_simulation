@@ -19,21 +19,26 @@ REMOVE_ENTITY_LEN = 28
 FORCE_OTHER, FORCE_FRIENDLY, FORCE_OPPOSING, FORCE_NEUTRAL = 0, 1, 2, 3
 FORCE_NAMES = {'other': 0, 'unknown': 0, 'friendly': 1, 'opposing': 2, 'neutral': 3}
 
-# kind.domain.country.category.subcategory.specific.extra — CR-002 table,
-# verified there against Wireshark packet-dis.c (country 124 = Canada).
+# DIS countries are SISO-REF-010 codes, not ISO 3166: Canada is 39 (ISO's 124 is
+# Lesotho in DIS). Confirmed with tshark 4.2.6, 2026-11-10 — CR-002 addendum.
+COUNTRY_CANADA = 39
+
+# kind.domain.country.category.subcategory.specific.extra — CR-002 table with the
+# country corrected. Category names confirmed by Wireshark's DIS dissector;
+# car 10, school bus 12 and life form 200/80/90 have no names there (unconfirmed).
 ENTITY_TYPES = {
-    'car':                (1, 1, 124, 81, 10, 0, 0),
-    'cargo_truck':        (1, 1, 124, 83, 0, 0, 0),
-    'bus':                (1, 1, 124, 82, 0, 0, 0),
-    'school_bus':         (1, 1, 124, 82, 12, 0, 0),
-    'horse':              (3, 1, 124, 200, 80, 0, 0),
-    'horse_with_rider':   (3, 1, 124, 200, 90, 0, 0),
-    'tank':               (1, 1, 124, 1, 0, 0, 0),
-    'afv':                (1, 1, 124, 2, 0, 0, 0),
-    'utility_helicopter': (1, 2, 124, 21, 0, 0, 0),
-    'attack_helicopter':  (1, 2, 124, 20, 0, 0, 0),
-    'patrol_craft':       (1, 3, 124, 7, 0, 0, 0),
-    'civil_airliner':     (1, 2, 124, 87, 0, 0, 0),
+    'car':                (1, 1, COUNTRY_CANADA, 81, 10, 0, 0),
+    'cargo_truck':        (1, 1, COUNTRY_CANADA, 83, 0, 0, 0),
+    'bus':                (1, 1, COUNTRY_CANADA, 82, 0, 0, 0),
+    'school_bus':         (1, 1, COUNTRY_CANADA, 82, 12, 0, 0),
+    'horse':              (3, 1, COUNTRY_CANADA, 200, 80, 0, 0),
+    'horse_with_rider':   (3, 1, COUNTRY_CANADA, 200, 90, 0, 0),
+    'tank':               (1, 1, COUNTRY_CANADA, 1, 0, 0, 0),
+    'afv':                (1, 1, COUNTRY_CANADA, 2, 0, 0, 0),
+    'utility_helicopter': (1, 2, COUNTRY_CANADA, 21, 0, 0, 0),
+    'attack_helicopter':  (1, 2, COUNTRY_CANADA, 20, 0, 0, 0),
+    'patrol_craft':       (1, 3, COUNTRY_CANADA, 7, 0, 0, 0),
+    'civil_airliner':     (1, 2, COUNTRY_CANADA, 87, 0, 0, 0),
 }
 
 # PDU types moving-map does not decode, for --fault-unknown-types:

@@ -17,7 +17,8 @@ tshark -r recordings/ottawa-mixed.pcap  -d udp.port==3901,dis -V   # lifecycle 3
 
 Checked 2026-11-10 with tshark 4.2.6: every field of all 4562 PDUs matches the
 raw bytes and moving-map's `parse` (CR-004 addendum). Wireshark decodes DIS
-country 124 as **Lesotho** — Canada is 39; see the CR-002 addendum.
+country 124 as **Lesotho** — Canada is 39 — so the recordings were
+regenerated with country 39 on 2026-11-10; see the CR-002 addendum.
 
 | Scenario | Length | PDUs | Entity State / Remove Entity |
 |---|---|---|---|

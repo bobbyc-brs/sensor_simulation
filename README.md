@@ -181,8 +181,8 @@ traffic stays on the LAN. Added per CR-001 in `DECISIONS.changeRequest/`.
 - **Removes** each entity with a Remove Entity PDU (type 12) on SIGINT/SIGTERM,
   or after 30 s without updates.
 - **Identifies** aircraft as `1.42.N` (site.application.entity), where `N` is the
-  number in the callsign (`flight3` → 3): civil airliner type 1.2.124.87.0.0.0
-  (CR-002), force 3 (Neutral), the callsign as marking.
+  number in the callsign (`flight3` → 3): civil airliner type 1.2.39.87.0.0.0
+  (CR-002; DIS country 39 = Canada), force 3 (Neutral), the callsign as marking.
 - **Optionally adds sensed tracks** (`--dis-fused`): each aircraft's fused sensor
   position becomes a separate entity `2.42.N`, force 0 (Other — shown as Unknown),
   marked `S:<callsign>`.

@@ -17,20 +17,21 @@ from gateways.dis_pdu import (
 
 YOW = (45.3225, -75.6692)
 
-# CR-002 table: name → (wire bytes 20–27 as kind, domain, country, cat, subcat, specific, extra)
+# CR-002 table: name → (wire bytes 20–27 as kind, domain, country, cat, subcat, specific, extra).
+# Country is the SISO code for Canada, 39 — the CR's 124 is ISO's, and Lesotho in DIS.
 CR002_TABLE = {
-    'car':                (1, 1, 124, 81, 10, 0, 0),
-    'cargo_truck':        (1, 1, 124, 83, 0, 0, 0),
-    'bus':                (1, 1, 124, 82, 0, 0, 0),
-    'school_bus':         (1, 1, 124, 82, 12, 0, 0),
-    'horse':              (3, 1, 124, 200, 80, 0, 0),
-    'horse_with_rider':   (3, 1, 124, 200, 90, 0, 0),
-    'tank':               (1, 1, 124, 1, 0, 0, 0),
-    'afv':                (1, 1, 124, 2, 0, 0, 0),
-    'utility_helicopter': (1, 2, 124, 21, 0, 0, 0),
-    'attack_helicopter':  (1, 2, 124, 20, 0, 0, 0),
-    'patrol_craft':       (1, 3, 124, 7, 0, 0, 0),
-    'civil_airliner':     (1, 2, 124, 87, 0, 0, 0),
+    'car':                (1, 1, 39, 81, 10, 0, 0),
+    'cargo_truck':        (1, 1, 39, 83, 0, 0, 0),
+    'bus':                (1, 1, 39, 82, 0, 0, 0),
+    'school_bus':         (1, 1, 39, 82, 12, 0, 0),
+    'horse':              (3, 1, 39, 200, 80, 0, 0),
+    'horse_with_rider':   (3, 1, 39, 200, 90, 0, 0),
+    'tank':               (1, 1, 39, 1, 0, 0, 0),
+    'afv':                (1, 1, 39, 2, 0, 0, 0),
+    'utility_helicopter': (1, 2, 39, 21, 0, 0, 0),
+    'attack_helicopter':  (1, 2, 39, 20, 0, 0, 0),
+    'patrol_craft':       (1, 3, 39, 7, 0, 0, 0),
+    'civil_airliner':     (1, 2, 39, 87, 0, 0, 0),
 }
 
 
@@ -88,6 +89,12 @@ class EntityStateLayoutTest(unittest.TestCase):
             with self.subTest(name=name):
                 want = struct.pack('>BBHBBBB', *fields)
                 self.assertEqual(pdu(entity_type=ENTITY_TYPES[name])[20:28], want)
+
+    def test_country_is_siso_canada(self):
+        for name, fields in ENTITY_TYPES.items():
+            with self.subTest(name=name):
+                self.assertEqual(fields[2], 39)
+                self.assertEqual(struct.unpack_from('>H', pdu(entity_type=fields), 22)[0], 39)
 
     def test_location_is_ecef(self):
         x, y, z = struct.unpack_from('>ddd', pdu(), 48)

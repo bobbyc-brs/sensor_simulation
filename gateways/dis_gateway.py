@@ -5,7 +5,7 @@ and sends one 144-byte Entity State PDU per aircraft — on every vehicle messag
 and at least every HEARTBEAT_S. On exit (SIGINT/SIGTERM) sends a Remove Entity
 PDU for each known entity. Standard library only; LAN only. Per CR-001.
 
-Aircraft are civil airliners, DIS type 1.2.124.87.0.0.0 (CR-002), force 3.
+Aircraft are civil airliners, DIS type 1.2.39.87.0.0.0 (CR-002; country 39 = Canada), force 3.
 Output options (multicast, TTL, bundling, recording, fault injection) come from
 gateways/dis_output.py (CR-004).
 
