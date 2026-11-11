@@ -106,3 +106,19 @@ disappear at once (Remove Entity), not after the 12 s timeout.
   Sensors' own display and the gateway.
 - Sensors has no tests; please add at least one that packs a PDU and checks
   length 144 and the header bytes.
+
+### Decisions — Bobby, 2026-11-10
+
+Both ⚖ items above are settled; these override the defaults proposed there.
+
+- **Other traffic: in scope now, as an option.** Add a switch (e.g.
+  `--dis-fused` on the gateway and `simulation_manager.py`) that also emits the
+  fused/sensed tracks as separate entities — distinct site number (e.g. 2) so
+  their IDs never collide with truth. **Test both cases:** truth only (switch
+  off, the default) and truth + sensed traffic (switch on). Force ID for sensed
+  tracks: 0 (Other — moving-map shows it as Unknown) unless Bobby says otherwise.
+- **Civil aircraft are neutral:** `--force` default is **3**, not 1.
+
+Acceptance, case 2: with the switch on, moving-map shows the 3 truth aircraft
+as Neutral plus their sensed tracks as Unknown, `malformed=0`, and all of them
+removed at once when Sensors exits.
