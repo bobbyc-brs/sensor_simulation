@@ -165,3 +165,20 @@ on ports 3901–3904, not 3000, so they need `tshark -d udp.port==390N,dis`.
   count is lower than moving-map's.
   - The gateway's "receiver should count" line follows moving-map's
     split-by-length rule, not Wireshark's.
+
+### Correction — Entity State / Remove split, 2026-11-10
+
+The addendum above gives the 4562 recorded PDUs as "4302 Entity State and 260
+Remove Entity". That was an addition error. The per-recording counts in
+`recordings/README.md` were right all along, and they sum to **4339 Entity State
+and 223 Remove Entity**:
+
+| Recording | Entity State | Remove Entity |
+|---|---|---|
+| ottawa-mixed | 541 | 13 |
+| lifecycle | 237 | 5 |
+| load-200 | 3020 | 200 |
+| zone-crossing | 541 | 5 |
+
+moving-map-display caught this in its re-check (TESTLOG 4985c21). The total of
+4562, and the finding that every field agreed, are unaffected.
