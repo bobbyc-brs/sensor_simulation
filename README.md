@@ -121,7 +121,7 @@ gateways/             # DIS encoding (dis_pdu), output (dis_output), dis_gateway
 cgf/                  # CGF: scenario files → DIS entities (scenario, motion, runner)
 scenarios/            # CGF scenario files (JSON) — see scenarios/README.md
 recordings/           # DIS regression vectors, pcap + raw — see recordings/README.md
-devel-scripts/        # Developer scripts (regenerate the recordings)
+devel-scripts/        # Developer scripts (regenerate the recordings, the symbol gallery)
 tests/                # Unit tests (python -m unittest discover -s tests -t .)
 visualization/        # web_visualizer (default), visualizer (desktop), shared plot helpers
 simulation_manager.py # Orchestrates all processes
@@ -266,8 +266,30 @@ lifecycle (late, silent, removed and re-added, duplicate numbers on two sites),
 a 200-entity load at 200 PDU/s, and a UTM zone crossing at 78°W. Every PDU
 carries its send time in the timestamp field, for latency measurement.
 
+For moving-map's touch-screen GUI (CR-005): `symbol-gallery.json` shows every
+frame and icon at once, `ownship-manoeuvres.json` exercises track-up rotation
+through north and attitude, and `demo-tour.json` is a 10-minute demo that
+repeats. Entities can send by dead reckoning (`"send": "dead_reckoning"`)
+instead of at a fixed rate, as a real simulator does.
+
 File format, entity-type catalogue, the scenario list and the motion model:
 [`scenarios/README.md`](scenarios/README.md).
+
+### Replaying a capture
+
+`cgf.replay` plays any classic pcap's UDP payloads back, byte for byte, at their
+recorded timing — Sensors' own recordings, or a real simulator's capture — with
+no scenario engine:
+
+```bash
+python -m cgf.replay recordings/ottawa-mixed.pcap            # to 127.0.0.1:3800
+python -m cgf.replay capture.pcap --speed 4 --loop --only-port 3000 --dest 239.1.2.3
+```
+
+It reads Ethernet (with VLAN tags), raw IPv4 and Linux cooked captures in either
+byte order, skips IP fragments, and refuses pcapng (convert with
+`editcap -F pcap in.pcapng out.pcap`). Each pass prints its wall time against
+the capture span ÷ `--speed`.
 
 ## Visualization
 

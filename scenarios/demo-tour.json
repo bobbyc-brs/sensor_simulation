@@ -1,0 +1,341 @@
+{
+  "name": "demo-tour",
+  "description": "CR-005 item 5: a 10-minute scripted demo, repeating. Ownship utility helicopter 1.42.1 flies YOW \u2192 Parliament \u2192 across the river (30 s hover, slow yaw) \u2192 Rockcliffe \u2192 YOW. On the way: hostile VIPER1 closes from the north at ~130 s and turns away; a friendly convoy (truck, AFV, tank) on the Queensway; neutral school bus, cars, patrol craft and airliner; an unknown UAV that goes silent at 300 s (stale, then dropped); CAR2 removed at 360 s; a horse and rider. Everything but the ownship sends by dead reckoning.",
+  "duration_s": 600,
+  "repeat": true,
+  "defaults": {
+    "site": 1,
+    "app": 42,
+    "update_s": 1.0,
+    "send": "dead_reckoning"
+  },
+  "entities": [
+    {
+      "callsign": "HELO1",
+      "type": "utility_helicopter",
+      "force": "friendly",
+      "entity": 1,
+      "ownship": true,
+      "speed_kts": 120,
+      "update_s": 0.2,
+      "send": "fixed",
+      "waypoints": [
+        [
+          45.3225,
+          -75.6692,
+          150
+        ],
+        [
+          45.4236,
+          -75.7009,
+          300
+        ],
+        {
+          "lat": 45.433,
+          "lon": -75.708,
+          "alt_m": 250,
+          "hold_s": 30,
+          "yaw_dps": 6
+        },
+        [
+          45.45,
+          -75.66,
+          300
+        ],
+        [
+          45.3225,
+          -75.6692,
+          150
+        ]
+      ]
+    },
+    {
+      "callsign": "VIPER1",
+      "type": "attack_helicopter",
+      "force": "opposing",
+      "entity": 2,
+      "speed_kts": 120,
+      "start_s": 100,
+      "stop_s": 450,
+      "waypoints": [
+        [
+          45.5,
+          -75.72,
+          400
+        ],
+        [
+          45.445,
+          -75.705,
+          250
+        ],
+        [
+          45.48,
+          -75.58,
+          300
+        ],
+        [
+          45.54,
+          -75.48,
+          400
+        ]
+      ]
+    },
+    {
+      "callsign": "CONVOY-TRK",
+      "type": "cargo_truck",
+      "force": "friendly",
+      "entity": 3,
+      "speed_kts": 30,
+      "start_s": 0,
+      "waypoints": [
+        [
+          45.37,
+          -75.79,
+          80
+        ],
+        [
+          45.41,
+          -75.69,
+          70
+        ],
+        [
+          45.425,
+          -75.62,
+          70
+        ]
+      ]
+    },
+    {
+      "callsign": "CONVOY-AFV",
+      "type": "afv",
+      "force": "friendly",
+      "entity": 4,
+      "speed_kts": 30,
+      "start_s": 20,
+      "waypoints": [
+        [
+          45.37,
+          -75.79,
+          80
+        ],
+        [
+          45.41,
+          -75.69,
+          70
+        ],
+        [
+          45.425,
+          -75.62,
+          70
+        ]
+      ]
+    },
+    {
+      "callsign": "CONVOY-TNK",
+      "type": "tank",
+      "force": "friendly",
+      "entity": 5,
+      "speed_kts": 30,
+      "start_s": 40,
+      "waypoints": [
+        [
+          45.37,
+          -75.79,
+          80
+        ],
+        [
+          45.41,
+          -75.69,
+          70
+        ],
+        [
+          45.425,
+          -75.62,
+          70
+        ]
+      ]
+    },
+    {
+      "callsign": "SBUS1",
+      "type": "school_bus",
+      "force": "neutral",
+      "entity": 6,
+      "speed_kts": 30,
+      "loop": true,
+      "waypoints": [
+        [
+          45.273,
+          -75.735,
+          95
+        ],
+        [
+          45.285,
+          -75.76,
+          95
+        ],
+        [
+          45.269,
+          -75.772,
+          95
+        ]
+      ]
+    },
+    {
+      "callsign": "CAR1",
+      "type": "car",
+      "force": "neutral",
+      "entity": 7,
+      "speed_kts": 50,
+      "loop": true,
+      "waypoints": [
+        [
+          45.307,
+          -75.905,
+          90
+        ],
+        [
+          45.374,
+          -75.751,
+          70
+        ],
+        [
+          45.411,
+          -75.688,
+          70
+        ]
+      ]
+    },
+    {
+      "callsign": "CAR2",
+      "type": "car",
+      "force": "neutral",
+      "entity": 8,
+      "speed_kts": 45,
+      "stop_s": 360,
+      "on_stop": "remove",
+      "waypoints": [
+        [
+          45.39,
+          -75.62,
+          70
+        ],
+        [
+          45.43,
+          -75.66,
+          70
+        ]
+      ]
+    },
+    {
+      "callsign": "UAV-X",
+      "type": [
+        1,
+        2,
+        39,
+        50,
+        0,
+        0,
+        0
+      ],
+      "force": "unknown",
+      "entity": 9,
+      "speed_kts": 60,
+      "loop": true,
+      "stop_s": 300,
+      "on_stop": "silent",
+      "motion": "fixed_wing",
+      "waypoints": [
+        {
+          "orbit": {
+            "centre": [
+              45.47,
+              -75.53
+            ],
+            "radius_m": 2500,
+            "alt_m": 800
+          }
+        }
+      ]
+    },
+    {
+      "callsign": "RIDER1",
+      "type": "horse_with_rider",
+      "force": "unknown",
+      "entity": 10,
+      "speed_kts": 6,
+      "loop": true,
+      "waypoints": [
+        [
+          45.49,
+          -75.82,
+          150
+        ],
+        [
+          45.5,
+          -75.84,
+          200
+        ]
+      ]
+    },
+    {
+      "callsign": "PATROL1",
+      "type": "patrol_craft",
+      "force": "neutral",
+      "entity": 11,
+      "speed_kts": 15,
+      "loop": true,
+      "waypoints": [
+        [
+          45.43,
+          -75.745,
+          45
+        ],
+        [
+          45.465,
+          -75.64,
+          45
+        ],
+        [
+          45.475,
+          -75.58,
+          45
+        ]
+      ]
+    },
+    {
+      "callsign": "AC123",
+      "type": "civil_airliner",
+      "force": "neutral",
+      "entity": 12,
+      "speed_kts": 180,
+      "loop": true,
+      "waypoints": [
+        [
+          45.2,
+          -75.45,
+          1500
+        ],
+        [
+          45.3,
+          -75.64,
+          300
+        ],
+        [
+          45.38,
+          -75.75,
+          1200
+        ],
+        [
+          45.45,
+          -75.95,
+          3000
+        ],
+        [
+          45.25,
+          -75.9,
+          3000
+        ]
+      ]
+    }
+  ]
+}

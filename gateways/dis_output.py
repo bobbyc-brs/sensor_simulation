@@ -305,6 +305,11 @@ class DisOutput:
                 group.append((pdu, other))
                 size += len(pdu)
 
+    def send_raw(self, datagram):
+        """Send one datagram exactly as given — no timestamp, faults or bundling (replay, CR-005)."""
+        pdus, ok = split_pdus(datagram)
+        self._emit(datagram, len(pdus), malformed=not ok)
+
     @property
     def pdus_sent(self):
         return self.counts['pdus']

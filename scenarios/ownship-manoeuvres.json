@@ -1,0 +1,135 @@
+{
+  "name": "ownship-manoeuvres",
+  "description": "CR-005 item 2: ownship helicopter 1.42.1 at 80 kt west of Ottawa \u2014 a full clockwise orbit then a full counter-clockwise orbit (1.5 km radius, banked), a straight leg on 355\u00b0 turning to 005\u00b0 (heading crosses north), a 45 s hover with a slow 360\u00b0 yaw (8\u00b0/s), then a climb to 600 m and a descent to 150 m (pitch). Four parked references 4 km N, E, S and W of the orbit centre 45.33N 75.80W. Loops until stopped.",
+  "defaults": {
+    "site": 1,
+    "app": 42,
+    "update_s": 1.0
+  },
+  "entities": [
+    {
+      "callsign": "HELO1",
+      "type": "utility_helicopter",
+      "force": "friendly",
+      "entity": 1,
+      "ownship": true,
+      "speed_kts": 80,
+      "update_s": 0.2,
+      "loop": true,
+      "waypoints": [
+        [
+          45.33,
+          -75.8,
+          150
+        ],
+        {
+          "orbit": {
+            "centre": [
+              45.33,
+              -75.8
+            ],
+            "radius_m": 1500,
+            "alt_m": 200,
+            "direction": "cw",
+            "start_deg": 0
+          }
+        },
+        {
+          "orbit": {
+            "centre": [
+              45.33,
+              -75.8
+            ],
+            "radius_m": 1500,
+            "alt_m": 200,
+            "direction": "ccw",
+            "start_deg": 0
+          }
+        },
+        [
+          45.30302,
+          -75.8,
+          200
+        ],
+        [
+          45.3299,
+          -75.80334,
+          200
+        ],
+        {
+          "lat": 45.35677,
+          "lon": -75.8,
+          "alt_m": 150,
+          "hold_s": 45,
+          "yaw_dps": 8
+        },
+        [
+          45.35677,
+          -75.7616,
+          600
+        ],
+        [
+          45.33451,
+          -75.72994,
+          150
+        ]
+      ]
+    },
+    {
+      "callsign": "REF-N",
+      "type": "car",
+      "force": "neutral",
+      "entity": 2,
+      "speed_kts": 0,
+      "waypoints": [
+        [
+          45.36597,
+          -75.8,
+          70
+        ]
+      ]
+    },
+    {
+      "callsign": "REF-E",
+      "type": "cargo_truck",
+      "force": "neutral",
+      "entity": 3,
+      "speed_kts": 0,
+      "waypoints": [
+        [
+          45.32999,
+          -75.74883,
+          70
+        ]
+      ]
+    },
+    {
+      "callsign": "REF-S",
+      "type": "tank",
+      "force": "friendly",
+      "entity": 4,
+      "speed_kts": 0,
+      "waypoints": [
+        [
+          45.29403,
+          -75.8,
+          70
+        ]
+      ]
+    },
+    {
+      "callsign": "REF-W",
+      "type": "horse",
+      "force": "neutral",
+      "entity": 5,
+      "speed_kts": 0,
+      "waypoints": [
+        [
+          45.32999,
+          -75.85117,
+          70
+        ]
+      ]
+    }
+  ]
+}

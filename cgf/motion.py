@@ -7,7 +7,9 @@ corners are rounded and orientation is real:
 - heading is the current track, re-computed every step toward the next waypoint;
 - roll is the coordinated-turn bank, atan(v·ω/g), for air entities;
 - pitch is the climb angle, and a helicopter also pitches nose-down to
-  accelerate (−atan(a/g)) and nose-up to slow into a hover.
+  accelerate (−atan(a/g)) and nose-up to slow into a hover;
+- during a hold, a waypoint's yaw_dps turns the heading on the spot (a hover
+  pedal turn), with no roll because the entity is not moving.
 
 Deterministic: the same spec and step size give the same track.
 """
@@ -83,8 +85,10 @@ class Mover:
         self.t = 0.0
         target = self.waypoints[self.index]
         self.heading = bearing_deg(self.lat, self.lon, target['lat'], target['lon']) if not self.parked else 0.0
-        # Fixed-wing aircraft cannot start from rest; everything else accelerates away.
-        self.speed = spec['speed_ms'] if spec['motion'] == 'fixed_wing' else 0.0
+        # Fixed-wing aircraft cannot start from rest; everything else accelerates
+        # away. A parked entity (one waypoint) starts and stays at rest.
+        moving_fixed_wing = spec['motion'] == 'fixed_wing' and not self.parked
+        self.speed = spec['speed_ms'] if moving_fixed_wing else 0.0
         self.vertical = 0.0
         self.turn_rate_dps = 0.0
         self.accel = 0.0
@@ -130,8 +134,11 @@ class Mover:
         target = self.waypoints[self.index]
         dist = distance_m(self.lat, self.lon, target['lat'], target['lon'])
         error = 0.0
+        yaw = 0.0
         if holding:
             want_speed = 0.0
+            if self.hold_until is not None:
+                yaw = target['yaw_dps'] * dt
         else:
             cruise = target['speed_ms'] if target['speed_ms'] is not None else self.spec['speed_ms']
             want_speed = cruise
@@ -145,7 +152,7 @@ class Mover:
         turn_dps = lim['turn_dps']
         if self.spec['motion'] == 'helicopter' and self.speed < HOVER_SPEED_MS:
             turn_dps = HOVER_YAW_DPS
-        turn = _clamp(error, turn_dps * dt)
+        turn = yaw if yaw else _clamp(error, turn_dps * dt)
         self.turn_rate_dps = turn / dt
         self.heading = (self.heading + turn) % 360.0
 

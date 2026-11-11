@@ -103,12 +103,56 @@ def _speed_ms(spec, where, required=True):
 def _waypoint(value, where):
     if isinstance(value, list) and len(value) == 3:
         return {'lat': float(value[0]), 'lon': float(value[1]), 'alt_m': float(value[2]),
-                'hold_s': 0.0, 'speed_ms': None}
+                'hold_s': 0.0, 'speed_ms': None, 'yaw_dps': 0.0}
     if isinstance(value, dict) and {'lat', 'lon', 'alt_m'} <= value.keys():
+        hold_s = float(value.get('hold_s', 0.0))
+        yaw_dps = float(value.get('yaw_dps', 0.0))
+        if yaw_dps and not hold_s:
+            raise ScenarioError(f'{where}: yaw_dps turns the heading during a hold, so it needs hold_s')
         return {'lat': float(value['lat']), 'lon': float(value['lon']), 'alt_m': float(value['alt_m']),
-                'hold_s': float(value.get('hold_s', 0.0)),
-                'speed_ms': _speed_ms(value, where, required=False)}
+                'hold_s': hold_s, 'speed_ms': _speed_ms(value, where, required=False), 'yaw_dps': yaw_dps}
     raise ScenarioError(f'{where}: waypoint must be [lat, lon, alt_m] or an object with lat, lon, alt_m')
+
+
+ORBIT_STEP_DEG = 30.0
+
+
+def _orbit(value, where):
+    """Expand {"orbit": {...}} into waypoints every 30° round a full circle (CR-005).
+
+    Keys: centre [lat, lon], radius_m, alt_m, direction "cw" or "ccw" (default
+    cw), start_deg (bearing from the centre to the first point, default 0), and
+    turns (default 1). The first point is repeated at the end, so the entity
+    completes the circle before moving on.
+    """
+    from cgf.motion import destination   # local: motion imports nothing from here
+    try:
+        lat0, lon0 = (float(v) for v in value['centre'])
+        radius, alt = float(value['radius_m']), float(value['alt_m'])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ScenarioError(f'{where}: orbit needs centre [lat, lon], radius_m and alt_m') from exc
+    direction = value.get('direction', 'cw')
+    if direction not in ('cw', 'ccw'):
+        raise ScenarioError(f'{where}: orbit direction must be "cw" or "ccw"')
+    sign = 1.0 if direction == 'cw' else -1.0
+    start = float(value.get('start_deg', 0.0))
+    steps = int(round(360.0 / ORBIT_STEP_DEG * float(value.get('turns', 1))))
+    out = []
+    for k in range(steps + 1):
+        lat, lon = destination(lat0, lon0, (start + sign * k * ORBIT_STEP_DEG) % 360.0, radius)
+        out.append({'lat': lat, 'lon': lon, 'alt_m': alt, 'hold_s': 0.0, 'speed_ms': None, 'yaw_dps': 0.0})
+    return out
+
+
+def _waypoints(values, where):
+    out = []
+    for i, w in enumerate(values):
+        here = f'{where} waypoint {i + 1}'
+        if isinstance(w, dict) and 'orbit' in w:
+            out += _orbit(w['orbit'], here)
+        else:
+            out.append(_waypoint(w, here))
+    return out
 
 
 def entity_spec(raw, index, defaults):
@@ -126,7 +170,7 @@ def entity_spec(raw, index, defaults):
                      int(raw.get('entity', index + 1)))
     if not all(1 <= v <= 0xFFFE for v in entity_id):
         raise ScenarioError(f'{where}: id values must be 1-65534')
-    waypoints = [_waypoint(w, f'{where} waypoint {i + 1}') for i, w in enumerate(raw.get('waypoints', []))]
+    waypoints = _waypoints(raw.get('waypoints', []), where)
     if not waypoints:
         raise ScenarioError(f'{where}: needs at least one waypoint')
     motion = raw.get('motion', motion_class(entity_type))
@@ -139,6 +183,9 @@ def entity_spec(raw, index, defaults):
     on_stop = raw.get('on_stop', 'remove')
     if on_stop not in ('remove', 'silent'):
         raise ScenarioError(f'{where}: on_stop must be "remove" or "silent"')
+    send = raw.get('send', defaults.get('send', 'fixed'))
+    if send not in ('fixed', 'dead_reckoning'):
+        raise ScenarioError(f'{where}: send must be "fixed" or "dead_reckoning"')
     restart_s = raw.get('restart_s')
     if restart_s is not None and (stop_s is None or float(restart_s) <= float(stop_s)):
         raise ScenarioError(f'{where}: restart_s needs a stop_s and must come after it')
@@ -157,6 +204,10 @@ def entity_spec(raw, index, defaults):
         'on_stop': on_stop,
         'restart_s': None if restart_s is None else float(restart_s),
         'update_s': float(raw.get('update_s', defaults['update_s'])),
+        'send': send,
+        'dr_threshold_m': float(raw.get('dr_threshold_m', defaults.get('dr_threshold_m', 1.0))),
+        'dr_threshold_deg': float(raw.get('dr_threshold_deg', defaults.get('dr_threshold_deg', 3.0))),
+        'heartbeat_s': float(raw.get('heartbeat_s', defaults.get('heartbeat_s', 5.0))),
     }
 
 
@@ -248,9 +299,13 @@ def build_scenario(raw, source='<scenario>'):
         raise ScenarioError(f'{source}: more than one ownship ({", ".join(ownships)})')
 
     duration = raw.get('duration_s')
+    repeat = bool(raw.get('repeat', False))
+    if repeat and duration is None:
+        raise ScenarioError(f'{source}: repeat needs duration_s (the length of one cycle)')
     return {
         'name': raw.get('name', source),
         'description': raw.get('description', ''),
         'duration_s': None if duration is None else float(duration),
+        'repeat': repeat,
         'entities': entities,
     }

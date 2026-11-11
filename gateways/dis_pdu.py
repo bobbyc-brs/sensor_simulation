@@ -50,6 +50,9 @@ FILLER_PDUS = (
     (11, FAMILY_SIMULATION_MGMT, 28),  # Create Entity
 )
 
+DR_STATIC = 1             # dead-reckoning algorithm: entity does not move
+DR_FPW = 2                # fixed, position, world coordinates (linear, ECEF velocity)
+
 FT_TO_M = 0.3048
 KTS_TO_MS = 0.514444
 
@@ -140,8 +143,12 @@ def pack_marking(text):
 
 def pack_entity_state(entity_id, force, entity_type, marking, lat, lon, alt_m,
                       heading_deg, pitch_deg=0.0, roll_deg=0.0,
-                      ground_speed_ms=0.0, vertical_ms=0.0, exercise=1, timestamp=0):
-    """Entity State PDU (144 bytes). entity_id is (site, app, entity)."""
+                      ground_speed_ms=0.0, vertical_ms=0.0, exercise=1, timestamp=0, dr_algorithm=0):
+    """Entity State PDU (144 bytes). entity_id is (site, app, entity).
+
+    dr_algorithm goes in the first byte of the dead-reckoning parameters: 0
+    (other) unless the sender really dead-reckons, then DR_FPW (CR-005).
+    """
     psi, theta, phi = orientation(lat, lon, heading_deg, pitch_deg, roll_deg)
     pdu = b''.join((
         pack_header(exercise, PDU_ENTITY_STATE, FAMILY_ENTITY_INFO, ENTITY_STATE_LEN, timestamp),
@@ -153,7 +160,7 @@ def pack_entity_state(entity_id, force, entity_type, marking, lat, lon, alt_m,
         struct.pack('>ddd', *ecef(lat, lon, alt_m)),
         struct.pack('>fff', psi, theta, phi),
         struct.pack('>I', 0),                       # appearance
-        bytes(40),                                  # dead reckoning parameters
+        bytes([dr_algorithm]) + bytes(39),          # dead reckoning: algorithm, then zeros
         pack_marking(marking),
         struct.pack('>I', 0),                       # capabilities
     ))
