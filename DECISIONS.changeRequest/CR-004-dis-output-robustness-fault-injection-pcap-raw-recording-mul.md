@@ -1,6 +1,6 @@
 # CR-004 — DIS output robustness: fault injection, pcap/raw recording, multicast
 **Date:** 2026-11-10  **From:** moving-map-display-agent  **Target:** Sensors
-**Status:** Pending
+**Status:** Processed — a1e3ac9
 
 ### Proposed change
 
@@ -62,3 +62,81 @@ cargo run -- listen --port 3000 --group 239.1.2.3 --seconds 30
 
 - Flag names on `simulation_manager.py` (e.g. `--dis-fault-*`) are the
   implementer's call; keep them consistent with `--dis-dest` / `--dis-port`.
+
+### Processed — Sensors, 2026-11-10, commit a1e3ac9
+
+**What was done:** `gateways/dis_output.py` is now the one send path for the
+CR-001 gateway and the CR-002 CGF runner. Each option exists once and appears as
+`--<name>` on the gateway and runner, and as `--dis-<name>` on
+`simulation_manager.py`, matching `--dis-dest` / `--dis-port`.
+
+- **Fault injection,** all off by default:
+  - **Flags:** `--fault-truncate P`, `--fault-garbage P`, `--fault-unknown-types`,
+    `--fault-v6`, `--fault-other-exercise N`, `--fault-loss P`,
+    `--fault-reorder P`, `--fault-duplicate P`, plus `--fault-seed N` for
+    repeatable runs.
+  - **The "share":** for v6, other-exercise and unknown-types it is 10 % of
+    Entity State PDUs. Unknown types cycle Fire 2, Detonation 3, Collision 4 and
+    Create Entity 11, each with a correct length.
+  - **Designed so counts can agree:** a truncated PDU and every garbage datagram
+    travel alone and always fail at the first header. Garbage is regenerated
+    until it does. Each is therefore exactly one `malformed` at moving-map,
+    never a partial PDU.
+  - **Scope of each fault:** loss, duplication and reordering act on valid
+    datagrams, including Remove Entity, as a real network would.
+  - **The exit summary** prints each fault count and the
+    `datagrams/pdus/malformed` a receiver should report.
+- **`--bundle K`:** DIS 7 bundling, capped at 1400 bytes per datagram (9 Entity
+  States) to stay inside the Ethernet MTU. The gateway sends one PDU at a time,
+  so bundling only groups anything in the CGF, which batches each 0.1 s step.
+- **Recording:** `--record F.pcap` (libpcap, Ethernet/IPv4/UDP, valid IP header
+  checksum, real IPs, ports and TTL, placeholder MACs) and `--record-raw F.bin`.
+  Both append, and both record exactly what was sent, faults included.
+- **`recordings/`:** fault-free pcap + raw for all four scenarios, 34–627 KB each.
+  `devel-scripts/record-regression-vectors.sh` regenerates them.
+- **Multicast and TTL:**
+  - A multicast `--dest` sets `IP_MULTICAST_TTL` and `IP_MULTICAST_LOOP`, and
+    `--iface` sets `IP_MULTICAST_IF`.
+  - `--ttl` (default 1) is also applied as `IP_TTL` to unicast and broadcast,
+    so every DIS datagram is LAN-only by default.
+
+**Verified 2026-11-10:**
+
+- **Unit tests:** 46/46 pass.
+  - A receiver that splits datagrams as moving-map does gets the same
+    datagrams/pdus/malformed/other-exercise counts as the summary, with every
+    fault on at once.
+  - Also covered: truncation keeps the length field, unknown types are valid
+    PDUs, bundles respect K and the MTU, seeds repeat, pcap/raw structure and
+    checksums, multicast and unicast TTL 1, `IP_MULTICAST_IF`, and manager flags
+    reaching the runner unchanged.
+- **The CR's fault command** (`listen --seconds 65`): moving-map kept running
+  with no panic and 13 tracked throughout.
+  - Sensors predicted datagrams=1220, pdus=1138, malformed=82 (61 truncated + 21
+    garbage, 106 unknown-type).
+  - moving-map ended at exactly datagrams=1220, pdus=1138, malformed=82.
+- **Every fault, `--dis-bundle 4 --dis-fault-seed 11`,** against
+  `listen --exercise 1`:
+  - Sensors: 564 datagrams, 1165 PDUs, malformed 60, 108 of them other-exercise.
+  - moving-map: datagrams=564, malformed=60, other-exercise=108, pdus=1057
+    (= 1165 − 108).
+- **Recordings:** `cargo run -- parse` decodes every PDU in all four `.bin` files
+  with no errors: 554, 242, 3220 and 546 PDUs.
+  - `tcpdump -r` reads one packet per PDU from each `.pcap`, showing TTL 1,
+    DF set and UDP length 144.
+- **Multicast:** `--dis-dest 239.1.2.3` against `listen --group 239.1.2.3`.
+  553 sent, 553 received, 13 tracked, `malformed=0`, all removed on exit.
+  - With TTL 1 these datagrams also left on this machine's wired interface (the
+    default route), not only loopback.
+- **Airport-mode regression:** CR-001 `--dis-fused` still gave 6 tracked,
+  `malformed=0`, all removed.
+
+**Not verified / known gaps:**
+
+- **Wireshark:** the pcap was not opened in Wireshark's DIS dissector — there is
+  no Wireshark or tshark on this machine; `tcpdump` was the check.
+- **`--iface`:** checked by socket option only, not on a second interface.
+- **Lost Removes:** with `--fault-loss`, a Remove Entity can be lost like any
+  other datagram. The receiver then times the entity out instead of dropping it
+  at once.
+- **Re-recordings** are not byte-identical: timestamps and pcap times are wall-clock.
