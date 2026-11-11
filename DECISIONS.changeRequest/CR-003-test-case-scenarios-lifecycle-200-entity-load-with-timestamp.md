@@ -1,6 +1,6 @@
 # CR-003 — Test-case scenarios: lifecycle, 200-entity load with timestamps, UTM zone crossing
 **Date:** 2026-11-10  **From:** moving-map-display-agent  **Target:** Sensors
-**Status:** Pending
+**Status:** Processed — 477c126
 
 ### Proposed change
 
@@ -46,3 +46,59 @@ the moving-map requirement it exercises. Depends on CR-002. Requested by Bobby,
 
 - Whether the 200-entity load runs as 200 processes or one process is the
   implementer's call — one process is likely necessary.
+
+### Processed — Sensors, 2026-11-10, commit 477c126
+
+**What was done:**
+
+- **Scenario format** gains `on_stop` (`remove` or `silent`) and `restart_s`
+  (reappear, same ID), plus a seeded `generate` block for large scenarios. All
+  are documented in `scenarios/README.md`.
+- **`lifecycle.json`:**
+  - LATE 1.42.1 starts at 20 s.
+  - SILENT 1.42.2 goes silent at 25 s with no Remove Entity.
+  - REMOVED 1.42.3 is removed at 30 s and reappears at 40 s.
+  - DUP-A 1.42.5 and DUP-B 2.42.5 run throughout.
+- **`load-200.json`** runs in one process, as the CR expected.
+  - It holds the ownship plus 199 generated entities (seed 2026), cycling all 12
+    CR-002 types across all four sides, within 98.7 NM of YOW, at 1 s updates.
+  - Send phases are staggered, so the rate is a steady 200 PDU/s with no
+    once-a-second burst.
+- **Send-time timestamps:** every PDU, from the CGF and the CR-001 gateway alike,
+  carries its send time in the DIS relative timestamp format. That is units of
+  3600/2³¹ s past the hour in the upper 31 bits, low bit 0, stamped as the
+  datagram leaves.
+- **`zone-crossing.json`** differs from the CR's example. Pembroke is at about
+  77.1°W, east of the zone line, so an Ottawa–Pembroke flight never crosses 78°W.
+  - The helicopter instead flies 77.99°W → 78.03°W near Bancroft/Maynooth, then
+    turns back.
+  - EAST-CAR and EAST-HRS sit east of the line, WEST-TRK and WEST-TNK west of it.
+
+**Verified 2026-11-10:**
+
+- **Unit tests:** 36/36 pass. They cover lifecycle send and remove timings, the
+  generator (200 entities, all types and forces, within 100 NM, deterministic),
+  195–205 PDUs in every second, the crossing, and timestamp encoding and
+  on-the-wire stamping.
+- **Live `lifecycle`** (`listen --seconds 63`):
+  - LATE first appears at frame 21, about 20 s in.
+  - SILENT disappears 10–11 frames after its last PDU. Frames are 1.0–1.2 s
+    apart, so that is about 11–13 s, consistent with `ENTITY_TIMEOUT_SECS = 12`.
+  - REMOVED is gone at once at 30 s, absent until 40 s, then back under the same ID.
+  - 1.42.5 and 2.42.5 stay separate throughout.
+  - `malformed=0`; 232 PDUs sent, 232 received.
+- **Live `load-200`** (`listen --ownship 1.42.1 --range-nm 100`):
+  - 200 tracked with `malformed=0`; 6600 PDUs sent, 6600 received.
+  - The runner reported 199.9, 200.1 and 200.0 PDU/s, lagging real time by 6–7 ms.
+  - All 200 were removed on exit.
+- **Live `zone-crossing`** (`listen --ownship 1.42.1 --range-nm 10`): the
+  ownship-centred map read UTM zone 18 up to 77.9985°W and zone 17 from
+  78.0000°W on, reaching 78.0241°W. `malformed=0`.
+  - Its last frame shows zone 18 again. That is a shutdown artefact: the
+    ownship's Remove was handled one redraw before the others, so the map
+    re-centred on EAST-CAR.
+
+**Not done:**
+
+- **Latency:** this repo doesn't measure moving-map's PDU-to-table latency; only
+  the send-time stamps it needs are in place.
