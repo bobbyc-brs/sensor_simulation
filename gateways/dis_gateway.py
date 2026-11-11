@@ -6,6 +6,8 @@ and at least every HEARTBEAT_S. On exit (SIGINT/SIGTERM) sends a Remove Entity
 PDU for each known entity. Standard library only; LAN only. Per CR-001.
 
 Aircraft are civil airliners, DIS type 1.2.124.87.0.0.0 (CR-002), force 3.
+Output options (multicast, TTL, bundling, recording, fault injection) come from
+gateways/dis_output.py (CR-004).
 
 With --fused, also subscribes to the sensor stream (SENSOR_MCAST_GRP), fuses the
 latest report per sensor per aircraft (fusion_app.fuse_positions, 1/sigma^2

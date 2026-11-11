@@ -120,6 +120,8 @@ fusion/               # Multicast fusion app
 gateways/             # DIS encoding (dis_pdu), output (dis_output), dis_gateway for airport flights
 cgf/                  # CGF: scenario files → DIS entities (scenario, motion, runner)
 scenarios/            # CGF scenario files (JSON) — see scenarios/README.md
+recordings/           # DIS regression vectors, pcap + raw — see recordings/README.md
+devel-scripts/        # Developer scripts (regenerate the recordings)
 tests/                # Unit tests (python -m unittest discover -s tests -t .)
 visualization/        # web_visualizer (default), visualizer (desktop), shared plot helpers
 simulation_manager.py # Orchestrates all processes
@@ -198,6 +200,38 @@ cargo run -- listen --port 3000 --range-nm 200 --seconds 30
 `--dis-dest 192.168.1.255` broadcasts to the LAN instead of `127.0.0.1`;
 `--dis-port` changes the port. The gateway itself also takes `--exercise`,
 `--site`, `--app`, `--force` and `--fused-site` — see `--help`.
+
+### Output options: multicast, recording, faults
+
+Every DIS sender — the gateway and the CGF runner — shares one output path
+(`gateways/dis_output.py`, CR-004). On `simulation_manager.py` each option is
+`--dis-<name>`; on `gateways.dis_gateway` and `cgf.runner` it is `--<name>`.
+
+| Option | Effect |
+|---|---|
+| `--dis-dest 239.1.2.3` | Multicast: sets `IP_MULTICAST_TTL`; `--dis-iface <ip>` picks the interface. Matches moving-map `listen --group 239.1.2.3 --iface <ip>` |
+| `--dis-ttl N` | IP TTL for every datagram, unicast too (default 1 — DIS stays on the LAN) |
+| `--dis-bundle K` | Pack up to K PDUs per datagram (DIS 7 bundling, ≤ 1400 bytes) |
+| `--dis-record F.pcap` / `--dis-record-raw F.bin` | Append every datagram sent to a libpcap file / back to back |
+| `--dis-fault-truncate P` | Cut a fraction P of Entity State PDUs short, length field unchanged |
+| `--dis-fault-garbage P` | Add a random-byte datagram after a valid one with probability P |
+| `--dis-fault-unknown-types` | Interleave valid Fire, Detonation, Collision and Create Entity PDUs |
+| `--dis-fault-v6` / `--dis-fault-other-exercise N` | Send 10 % of Entity State PDUs as version 6 / with exercise N |
+| `--dis-fault-loss P` / `-reorder P` / `-duplicate P` | Drop / swap with the next / repeat each valid datagram |
+| `--dis-fault-seed N` | Repeatable faults |
+
+On exit the sender prints what it did and **what a receiver should have
+counted**. Truncated and garbage datagrams always travel alone and always fail
+at their first header, so each is exactly one `malformed` at moving-map:
+
+```bash
+python simulation_manager.py --scenario-file scenarios/ottawa-mixed.json --dis \
+  --dis-fault-truncate 0.05 --dis-fault-garbage 0.02 --dis-fault-unknown-types --headless
+#   faults: truncated 61, garbage 21, unknown-type 106, ...
+#   receiver should count: datagrams=1220 pdus=1138 malformed=82 ...
+```
+
+Every PDU's timestamp field carries its DIS relative send time (CR-003).
 
 Heading is the aircraft's current great-circle bearing to its destination,
 re-computed each update (CR-002; before that it was the initial bearing).
