@@ -1,6 +1,6 @@
 # CR-002 — CGF foundation: scenario files, ownship helicopter, mixed entity types and sides (incl. cars, trucks, school buses, horses), current-bearing heading
 **Date:** 2026-11-10  **From:** moving-map-display-agent  **Target:** Sensors
-**Status:** Pending
+**Status:** Processed — 1f3f99a
 
 ### Proposed change
 
@@ -81,3 +81,70 @@ cargo run -- listen --port 3000 --ownship <helicopter s.a.e> --range-nm 25 --sec
   scenario readable.
 - moving-map does not yet map these types to symbols (its PLAN Phase 1); the
   entity table will show `?` for Activity until it does — not a Sensors issue.
+
+### Processed — Sensors, 2026-11-10, commit 1f3f99a
+
+**What was done:**
+
+- **Scenario files:** stdlib JSON, run by
+  `simulation_manager.py --scenario-file <file> --dis` or `python -m cgf.runner <file>`.
+  - Each entity takes everything the CR asked for, plus `hold_s` per waypoint,
+    `loop`, `update_s` and a `motion` override.
+  - `type` is a catalogue name (`school_bus`) or the 7 numbers.
+  - The loader validates the file and refuses duplicate IDs, a second ownship,
+    an unknown type or a missing speed.
+  - The format is documented in `scenarios/README.md`.
+- **One process for all entities** (`cgf/runner.py`): steps every 0.1 s in real
+  time and sends Remove Entity at `stop_s` and on exit.
+  - Scenario mode replaces the airport flights for that run, which keep working
+    without `--scenario-file`.
+  - It needs its own manager path because the airport loop stops after 120 s
+    without sensor traffic.
+- **Motion** (`cgf/motion.py`): straight legs between waypoints with no
+  road-following. Turn rate, acceleration and climb are limited per model (land,
+  lifeform, surface, helicopter, fixed wing).
+  - Heading is the current bearing to the next waypoint.
+  - Roll is the coordinated-turn bank. Pitch is the climb angle, plus nose-down
+    to accelerate for a helicopter.
+- **`ottawa-mixed.json`:** HELO1, utility helicopter 1.42.1, friendly, ownship,
+  at 150–400 m.
+  - Its loop opens with a true 180° reversal (Parliament → LeBreton → back
+    east), then a 20 s hover at Rideau Hall.
+  - 12 more entities cover every table row on all four sides, all within
+    16.7 NM of YOW. Two tanks cover the 1/2 force split.
+- **Encoding split:** `gateways/dis_pdu.py` holds the encoding, the entity-type
+  catalogue (the CR table verbatim) and full heading/pitch/roll orientation.
+  `gateways/dis_output.py` holds the send path, shared by the gateway and the
+  CGF, ready for CR-004.
+- **Gateway:** airliners now go out as 1.2.124.87.0.0.0.
+- **Heading fix:** `vehicles/vehicle_sim.py` sends the current great-circle
+  bearing to the destination on every update.
+
+**Verified 2026-11-10:**
+
+- **Unit tests:** 25/25 pass. They check bytes 20–27 for every table row,
+  orientation against CR-001's reference encoder, pitch/roll round trips at three
+  locations, scenario validation, motion (current bearing, turn roll, hover,
+  level ground entities) and `vehicle_sim` current bearing.
+- **Listener run:** `--scenario-file scenarios/ottawa-mixed.json --dis --headless`
+  against `listen --port 3000 --ownship 1.42.1 --range-nm 25 --seconds 66`.
+  - 13 tracked with `malformed=0`; 1129 PDUs sent, 1129 received.
+  - The map centre equals HELO1's position; F, A, N and U are all present.
+  - All 13 were gone at the first redraw after SIGINT.
+- **`parse-stdin` capture:** a second run captured to raw. Every entity decodes
+  with the exact type and force in the table.
+  - HELO1's decoded heading follows the reversal, 241° → 360° → 32°, over about 25 s.
+- **Pitch and roll from the wire:** moving-map doesn't decode them, so they were
+  read from the captured bytes with the test suite's independent inverse. Roll
+  reached 25° in the turn; pitch ran −11° accelerating to +19° slowing.
+- **Airport-mode regression:** CR-001 `-v 3 --dis --dis-fused` gave 6 tracked,
+  `malformed=0`, all removed on exit.
+- **Heading fix:** proved by unit test only (YYT→YYZ, more than 3° off the
+  initial bearing at the midpoint). A 22 s live run is too short to show it.
+
+**Known gaps:**
+
+- **Terrain:** not modelled; a ground entity's altitude is its waypoint altitude.
+- **Ground-vehicle pitch and roll:** sent as 0.
+- **Entity types:** taken from this CR's table. Not independently re-checked —
+  this machine has no Wireshark or tshark.
