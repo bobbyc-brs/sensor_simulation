@@ -117,6 +117,8 @@ geo/                  # Airports, routes, great-circle math, map drawing, time-s
 vehicles/             # Aircraft simulator (multicast position stream)
 sensors/              # noisy_sensor, adas_sensor, tacan_sensor
 fusion/               # Multicast fusion app
+gateways/             # dis_gateway: aircraft truth (and optionally sensed tracks) as DIS
+tests/                # Unit tests (python -m unittest discover -s tests -t .)
 visualization/        # web_visualizer (default), visualizer (desktop), shared plot helpers
 simulation_manager.py # Orchestrates all processes
 multicast_config.py   # Shared multicast groups/ports
@@ -141,6 +143,9 @@ python -m sensors.tacan_sensor --name tacan1 --radar-lat 44.881 --radar-lon -63.
 # Fusion
 python -m fusion.fusion_app
 
+# DIS gateway (see "DIS output")
+python -m gateways.dis_gateway --dest 127.0.0.1 --port 3000
+
 # Visualization (simulation should already be producing multicast traffic)
 python -m visualization.web_visualizer
 python -m visualization.visualizer   # desktop window; needs local display
@@ -159,6 +164,44 @@ Defined in `multicast_config.py`. Stages are separated so fusion and visualizati
 
 - Vehicle: `vehicle,name,lat,lon,progress,heading_deg,alt_ft,speed_kts`
 - Sensor: `sensor,name,lat,lon,progress,noise_or_type,vehicle` (target aircraft callsign, e.g. `flight3`)
+
+## DIS output
+
+`gateways/dis_gateway.py` re-emits every aircraft as an IEEE 1278.1 (DIS 7)
+**Entity State PDU** over UDP, so a DIS consumer such as
+`~/Projects/moving-map-display` can show the scenario. Standard library only; the
+traffic stays on the LAN. Added per CR-001 in `DECISIONS.changeRequest/`.
+
+- **Sends** one 144-byte Entity State PDU per aircraft on each vehicle message
+  (every 2 s), and a heartbeat at least every 5 s.
+- **Removes** each entity with a Remove Entity PDU (type 12) on SIGINT/SIGTERM,
+  or after 30 s without updates.
+- **Identifies** aircraft as `1.42.N` (site.application.entity), where `N` is the
+  number in the callsign (`flight3` → 3), with force 3 (Neutral) and the callsign
+  as marking.
+- **Optionally adds sensed tracks** (`--dis-fused`): each aircraft's fused sensor
+  position becomes a separate entity `2.42.N`, force 0 (Other — shown as Unknown),
+  marked `S:<callsign>`.
+
+```bash
+# Terminal 1 — Sensors: truth only, or add --dis-fused for sensed tracks too
+python simulation_manager.py -v 3 --dis --headless
+python simulation_manager.py -v 3 --dis --dis-fused --headless
+
+# Terminal 2 — moving-map-display
+cd ~/Projects/moving-map-display
+cargo run -- listen --port 3000 --range-nm 200 --seconds 30
+```
+
+`--dis-dest 192.168.1.255` broadcasts to the LAN instead of `127.0.0.1`;
+`--dis-port` changes the port. The gateway itself also takes `--exercise`,
+`--site`, `--app`, `--force` and `--fused-site` — see `--help`.
+
+**Known gaps:**
+- Sensors report position only, so a sensed track borrows altitude, heading
+  and speed from its aircraft's truth.
+- `vehicle_sim.py` broadcasts the initial great-circle bearing for the whole
+  flight, so the DIS heading drifts from the true track on long routes.
 
 ## Visualization
 

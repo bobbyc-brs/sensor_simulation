@@ -65,6 +65,17 @@ def launch_fusion():
     return subprocess.Popen(cmd)
 
 
+def launch_dis_gateway(dest, port, fused=False):
+    cmd = [
+        sys.executable, '-m', 'gateways.dis_gateway',
+        '--dest', dest,
+        '--port', str(port),
+    ]
+    if fused:
+        cmd.append('--fused')
+    return subprocess.Popen(cmd)
+
+
 def stop_all():
     print("\nStopping all simulation processes...")
     for p in processes:
@@ -183,6 +194,13 @@ Examples:
     parser.add_argument('--window', action='store_true',
                         help='Live map in a matplotlib desktop window (needs local X11/Wayland)')
     parser.add_argument('--web-port', type=int, default=8765, help='Port for --web visualizer')
+    parser.add_argument('--dis', action='store_true',
+                        help='Also emit aircraft truth as DIS Entity State PDUs (see gateways/dis_gateway.py)')
+    parser.add_argument('--dis-dest', default='127.0.0.1',
+                        help='DIS destination address, e.g. 192.168.1.255 for LAN broadcast (default: 127.0.0.1)')
+    parser.add_argument('--dis-port', type=int, default=3000, help='DIS UDP port (default: 3000)')
+    parser.add_argument('--dis-fused', action='store_true',
+                        help='With --dis, also emit fused sensor tracks as separate (Unknown) entities')
     args = parser.parse_args()
 
     num_vehicles, sensor_specs, scenario_routes, scenario_label = _resolve_layout(args)
@@ -267,6 +285,13 @@ Examples:
     processes.append(p)
     fusion_info = {'proc': p, 'name': 'fusion'}
     print("  Fusion app")
+
+    if args.dis_fused and not args.dis:
+        parser.error('--dis-fused needs --dis')
+    if args.dis:
+        processes.append(launch_dis_gateway(args.dis_dest, args.dis_port, fused=args.dis_fused))
+        content = 'truth + sensed tracks' if args.dis_fused else 'truth'
+        print(f"  DIS gateway ({content}) → {args.dis_dest}:{args.dis_port}")
 
     visualizer_proc = None
     if not args.headless:
