@@ -148,3 +148,28 @@ cargo run -- listen --port 3000 --ownship <helicopter s.a.e> --range-nm 25 --sec
 - **Ground-vehicle pitch and roll:** sent as 0.
 - **Entity types:** taken from this CR's table. Not independently re-checked —
   this machine has no Wireshark or tshark.
+
+### Addendum — Wireshark (tshark 4.2.6) check of the entity types, 2026-11-10
+
+Closes the "no Wireshark here" gap above. Each CR-002 type was packed and decoded
+with Wireshark's DIS dissector (`tshark -V`).
+
+- **Category names match the table for every row:** Car (81), Bus (82), Single Unit
+  Cargo Truck (83), Tank (1), Armored Fighting Vehicle (2), Utility Helicopter (21),
+  Attack Helicopter (20), Light/Patrol Craft (7), and Civilian Fixed Wing
+  Aircraft, Large (87).
+- **Five codes are unconfirmed.** Wireshark prints these as bare numbers, with no
+  name: car subcategory 10, school bus subcategory 12, and life-form category 200
+  with horse subcategories 80 and 90. The dissector neither confirms nor refutes them.
+- **Finding — country 124 is Lesotho, not Canada.** DIS uses the SISO-REF-010
+  country enumeration, not ISO 3166; 124 is Canada's ISO numeric code. Decoding
+  test PDUs that differed only in country gave:
+  - 39 = **Canada**, 124 = **Lesotho**
+  - 225 = United States, 224 = United Kingdom
+
+  Every PDU Sensors has sent since CR-001 therefore says Lesotho. The fix is 124 →
+  39 in `gateways/dis_pdu.py`'s catalogue and the tests, plus regenerated recordings.
+  - **Not changed yet:** the value came from the CR-001/CR-002 tables shared with
+    moving-map-display (its DD-004), so it is raised with moving-map-display and
+    Bobby first.
+  - **No effect on moving-map today:** its entity table does not use the country.

@@ -9,6 +9,16 @@ for `~/Projects/moving-map-display` until a capture from a real simulator exists
 | `<name>.bin` | PDUs back to back — `cargo run -- parse recordings/<name>.bin` reads it directly |
 | `<name>.pcap` | libpcap, Ethernet/IPv4/UDP with TTL 1 — opens in Wireshark or `tcpdump -r` |
 
+Each scenario was recorded on its own UDP port, so tell Wireshark it is DIS:
+
+```bash
+tshark -r recordings/ottawa-mixed.pcap  -d udp.port==3901,dis -V   # lifecycle 3902, load-200 3903, zone-crossing 3904
+```
+
+Checked 2026-11-10 with tshark 4.2.6: every field of all 4562 PDUs matches the
+raw bytes and moving-map's `parse` (CR-004 addendum). Wireshark decodes DIS
+country 124 as **Lesotho** — Canada is 39; see the CR-002 addendum.
+
 | Scenario | Length | PDUs | Entity State / Remove Entity |
 |---|---|---|---|
 | `ottawa-mixed` | 30 s | 554 | 541 / 13 |

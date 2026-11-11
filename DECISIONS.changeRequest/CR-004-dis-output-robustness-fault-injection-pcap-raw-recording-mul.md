@@ -140,3 +140,28 @@ CR-001 gateway and the CR-002 CGF runner. Each option exists once and appears as
   other datagram. The receiver then times the entity out instead of dropping it
   at once.
 - **Re-recordings** are not byte-identical: timestamps and pcap times are wall-clock.
+
+### Addendum — Wireshark (tshark 4.2.6) check of the recordings, 2026-11-10
+
+Closes the "pcap not opened in Wireshark" gap above. The recordings were captured
+on ports 3901–3904, not 3000, so they need `tshark -d udp.port==390N,dis`.
+
+- **Three-way agreement.** All 4 recordings — 4562 PDUs, 4302 Entity State and 260
+  Remove Entity — were compared PDU by PDU across raw bytes, tshark's DIS dissector
+  on the `.pcap`, and moving-map `parse` on the `.bin`. **No field disagreed**:
+  PDU type, exercise, version, entity ID, force, all 7 entity-type fields, marking,
+  and Remove receiving ID.
+  - **ECEF:** tshark matches the bytes to within 5 nm, its print precision.
+    Orientation and velocity match to their print precision.
+  - **moving-map's lat/lon/alt:** matches the bytes to its 6 dp / 0.1 m printing.
+- **Timestamps.** tshark reads Sensors' relative timestamps as the same seconds
+  past the hour (e.g. 588.1107 s), confirming the CR-003 encoding independently.
+- **Bundling.** Wireshark 4.2.6 dissects only the **first** PDU of a bundled
+  datagram. All 30 bundled datagrams in a test capture showed one PDU each, so
+  later PDUs in a bundle are invisible in Wireshark; moving-map reads them all.
+- **Fault traffic counts differently in Wireshark.** It flags truncated PDUs as
+  malformed (8 of 8 in a test capture). It decodes garbage datagrams as junk PDUs
+  instead (random type and version, e.g. type 152, version 169), so its malformed
+  count is lower than moving-map's.
+  - The gateway's "receiver should count" line follows moving-map's
+    split-by-length rule, not Wireshark's.
