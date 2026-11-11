@@ -1,0 +1,80 @@
+{
+  "name": "ottawa-mixed",
+  "description": "CR-002: ownship utility helicopter over Ottawa plus every CR-002 entity type on all four sides, within 25 NM of YOW. Loops until stopped.",
+  "defaults": {"site": 1, "app": 42, "update_s": 1.0},
+  "entities": [
+    {
+      "callsign": "HELO1", "type": "utility_helicopter", "force": "friendly", "entity": 1,
+      "ownship": true, "speed_kts": 90, "update_s": 0.2, "loop": true,
+      "waypoints": [
+        [45.4236, -75.7009, 200],
+        [45.4170, -75.7180, 200],
+        [45.4300, -75.6845, 250],
+        {"lat": 45.4446, "lon": -75.6863, "alt_m": 150, "hold_s": 20},
+        [45.4700, -75.5200, 400],
+        [45.3720, -75.6970, 250]
+      ]
+    },
+    {
+      "callsign": "AC123", "type": "civil_airliner", "force": "neutral", "entity": 2,
+      "speed_kts": 180, "loop": true,
+      "waypoints": [[45.2000, -75.4500, 1500], [45.3000, -75.6400, 300], [45.3800, -75.7500, 1200],
+                    [45.4500, -75.9500, 3000], [45.2500, -75.9000, 3000]]
+    },
+    {
+      "callsign": "CAR1", "type": "car", "force": "neutral", "entity": 3,
+      "speed_kts": 50, "loop": true,
+      "waypoints": [[45.3070, -75.9050, 90], [45.3740, -75.7510, 70], [45.4110, -75.6880, 70]]
+    },
+    {
+      "callsign": "TRUCK1", "type": "cargo_truck", "force": "neutral", "entity": 4,
+      "speed_kts": 45, "loop": true,
+      "waypoints": [[45.2400, -75.7400, 95], [45.3460, -75.7690, 80]]
+    },
+    {
+      "callsign": "BUS1", "type": "bus", "force": "neutral", "entity": 5,
+      "speed_kts": 30, "loop": true,
+      "waypoints": [[45.4030, -75.7330, 70], [45.4240, -75.6950, 70], [45.4280, -75.6500, 70]]
+    },
+    {
+      "callsign": "SBUS1", "type": "school_bus", "force": "neutral", "entity": 6,
+      "speed_kts": 30, "loop": true,
+      "waypoints": [[45.2730, -75.7350, 95], [45.2850, -75.7600, 95], [45.2690, -75.7720, 95]]
+    },
+    {
+      "callsign": "HORSE1", "type": "horse", "force": "neutral", "entity": 7,
+      "speed_kts": 6, "loop": true,
+      "waypoints": [[45.4560, -75.6590, 70], [45.4575, -75.6560, 70], [45.4550, -75.6545, 70]]
+    },
+    {
+      "callsign": "RIDER1", "type": "horse_with_rider", "force": "unknown", "entity": 8,
+      "speed_kts": 8, "loop": true,
+      "waypoints": [[45.4900, -75.8200, 150], [45.5000, -75.8400, 200]]
+    },
+    {
+      "callsign": "TANK1", "type": "tank", "force": "friendly", "entity": 9,
+      "speed_kts": 20, "loop": true,
+      "waypoints": [[45.3350, -75.9600, 100], [45.3450, -75.9900, 100]]
+    },
+    {
+      "callsign": "TANK2", "type": "tank", "force": "opposing", "entity": 10,
+      "speed_kts": 18, "loop": true,
+      "waypoints": [[45.0300, -75.6400, 100], [45.0500, -75.6000, 100]]
+    },
+    {
+      "callsign": "AFV1", "type": "afv", "force": "opposing", "entity": 11,
+      "speed_kts": 25, "loop": true,
+      "waypoints": [[45.0400, -75.7000, 100], [45.0700, -75.6600, 100]]
+    },
+    {
+      "callsign": "VIPER1", "type": "attack_helicopter", "force": "opposing", "entity": 12,
+      "speed_kts": 110, "update_s": 0.5, "loop": true,
+      "waypoints": [[45.0800, -75.5500, 300], [45.1500, -75.5000, 400], [45.1000, -75.4500, 300]]
+    },
+    {
+      "callsign": "PATROL1", "type": "patrol_craft", "force": "neutral", "entity": 13,
+      "speed_kts": 18, "loop": true,
+      "waypoints": [[45.4300, -75.7450, 45], [45.4650, -75.6400, 45], [45.4750, -75.5800, 45]]
+    }
+  ]
+}

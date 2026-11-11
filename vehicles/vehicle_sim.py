@@ -16,6 +16,21 @@ from geo.eastern_canada import (
 )
 from geo.sim_control import read_time_scale
 
+ARRIVED_DEG = 1e-6   # closer than this to the destination, keep the last heading
+
+
+def current_heading(lat, lon, dest_lat, dest_lon, last_heading):
+    """Great-circle bearing from the current position to the destination (CR-002).
+
+    The initial bearing drifts from the true track on long routes; this is the
+    track the aircraft is actually flying now. At the destination the bearing is
+    undefined, so the last heading is kept.
+    """
+    if abs(lat - dest_lat) < ARRIVED_DEG and abs(lon - dest_lon) < ARRIVED_DEG:
+        return last_heading
+    return initial_bearing_deg(lat, lon, dest_lat, dest_lon)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Aircraft simulator: great-circle flight between airports (lat/lon), UDP multicast."
@@ -47,6 +62,7 @@ def main():
 
     duration = flight_duration_s(lat1, lon1, lat2, lon2, args.speed_kts)
     bearing = initial_bearing_deg(lat1, lon1, lat2, lon2)
+    heading = bearing
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP)
     sock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, 1)
@@ -76,6 +92,7 @@ def main():
         elapsed = time.time() - start_time
         t = min(elapsed * time_scale / duration, 1.0) if duration > 0 else 1.0
         lat, lon = interpolate_great_circle(lat1, lon1, lat2, lon2, t)
+        heading = current_heading(lat, lon, lat2, lon2, heading)
 
         if t >= 1.0:
             if not arrived:
@@ -90,7 +107,7 @@ def main():
         # vehicle,callsign,lat,lon,progress,heading_deg,alt_ft,speed_kts
         msg = (
             f"vehicle,{args.name},{lat:.6f},{lon:.6f},{t:.4f},"
-            f"{bearing:.1f},{alt_ft:.0f},{speed:.0f}"
+            f"{heading:.1f},{alt_ft:.0f},{speed:.0f}"
         )
         sock.sendto(msg.encode(), addr)
         if not arrived:

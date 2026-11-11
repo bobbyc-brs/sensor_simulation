@@ -20,6 +20,8 @@ from geo.scenarios import (
     sensor_specs_from_counts,
 )
 
+from gateways.dis_output import add_output_args, forward_output_args
+
 processes = []
 
 
@@ -65,15 +67,28 @@ def launch_fusion():
     return subprocess.Popen(cmd)
 
 
-def launch_dis_gateway(dest, port, fused=False):
-    cmd = [
-        sys.executable, '-m', 'gateways.dis_gateway',
-        '--dest', dest,
-        '--port', str(port),
-    ]
+def launch_dis_gateway(output_args, fused=False):
+    cmd = [sys.executable, '-m', 'gateways.dis_gateway'] + output_args
     if fused:
         cmd.append('--fused')
     return subprocess.Popen(cmd)
+
+
+def run_scenario_file(path, output_args):
+    """Play a CGF scenario file (CR-002) until it ends or Ctrl-C; returns its exit code."""
+    cmd = [sys.executable, '-m', 'cgf.runner', path] + output_args
+    proc = subprocess.Popen(cmd)
+    processes.append(proc)
+    try:
+        return proc.wait()
+    except KeyboardInterrupt:
+        # Ctrl-C already reached the runner (same process group); give it time
+        # to send its Remove Entity PDUs before forcing it.
+        try:
+            return proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            stop_all()
+            return 1
 
 
 def stop_all():
@@ -196,12 +211,19 @@ Examples:
     parser.add_argument('--web-port', type=int, default=8765, help='Port for --web visualizer')
     parser.add_argument('--dis', action='store_true',
                         help='Also emit aircraft truth as DIS Entity State PDUs (see gateways/dis_gateway.py)')
-    parser.add_argument('--dis-dest', default='127.0.0.1',
-                        help='DIS destination address, e.g. 192.168.1.255 for LAN broadcast (default: 127.0.0.1)')
-    parser.add_argument('--dis-port', type=int, default=3000, help='DIS UDP port (default: 3000)')
+    add_output_args(parser, prefix='dis-')
     parser.add_argument('--dis-fused', action='store_true',
                         help='With --dis, also emit fused sensor tracks as separate (Unknown) entities')
+    parser.add_argument('--scenario-file', type=str, default=None,
+                        help='Play a CGF scenario file (e.g. scenarios/ottawa-mixed.json) as DIS instead of airport flights')
     args = parser.parse_args()
+    output_args = forward_output_args(args, prefix='dis-')
+
+    if args.scenario_file:
+        if args.scenario or _cli_overrides_counts(args) or args.dis_fused:
+            parser.error('--scenario-file replaces the airport flights; drop -v/-r/--num-*/--scenario/--dis-fused')
+        print(f"Scenario file {args.scenario_file} → DIS (scenario mode always sends DIS)")
+        sys.exit(run_scenario_file(args.scenario_file, output_args))
 
     num_vehicles, sensor_specs, scenario_routes, scenario_label = _resolve_layout(args)
     num_sensors = len(sensor_specs)
@@ -289,7 +311,7 @@ Examples:
     if args.dis_fused and not args.dis:
         parser.error('--dis-fused needs --dis')
     if args.dis:
-        processes.append(launch_dis_gateway(args.dis_dest, args.dis_port, fused=args.dis_fused))
+        processes.append(launch_dis_gateway(output_args, fused=args.dis_fused))
         content = 'truth + sensed tracks' if args.dis_fused else 'truth'
         print(f"  DIS gateway ({content}) → {args.dis_dest}:{args.dis_port}")
 

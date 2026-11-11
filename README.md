@@ -117,7 +117,9 @@ geo/                  # Airports, routes, great-circle math, map drawing, time-s
 vehicles/             # Aircraft simulator (multicast position stream)
 sensors/              # noisy_sensor, adas_sensor, tacan_sensor
 fusion/               # Multicast fusion app
-gateways/             # dis_gateway: aircraft truth (and optionally sensed tracks) as DIS
+gateways/             # DIS encoding (dis_pdu), output (dis_output), dis_gateway for airport flights
+cgf/                  # CGF: scenario files → DIS entities (scenario, motion, runner)
+scenarios/            # CGF scenario files (JSON) — see scenarios/README.md
 tests/                # Unit tests (python -m unittest discover -s tests -t .)
 visualization/        # web_visualizer (default), visualizer (desktop), shared plot helpers
 simulation_manager.py # Orchestrates all processes
@@ -177,8 +179,8 @@ traffic stays on the LAN. Added per CR-001 in `DECISIONS.changeRequest/`.
 - **Removes** each entity with a Remove Entity PDU (type 12) on SIGINT/SIGTERM,
   or after 30 s without updates.
 - **Identifies** aircraft as `1.42.N` (site.application.entity), where `N` is the
-  number in the callsign (`flight3` → 3), with force 3 (Neutral) and the callsign
-  as marking.
+  number in the callsign (`flight3` → 3): civil airliner type 1.2.124.87.0.0.0
+  (CR-002), force 3 (Neutral), the callsign as marking.
 - **Optionally adds sensed tracks** (`--dis-fused`): each aircraft's fused sensor
   position becomes a separate entity `2.42.N`, force 0 (Other — shown as Unknown),
   marked `S:<callsign>`.
@@ -197,11 +199,32 @@ cargo run -- listen --port 3000 --range-nm 200 --seconds 30
 `--dis-port` changes the port. The gateway itself also takes `--exercise`,
 `--site`, `--app`, `--force` and `--fused-site` — see `--help`.
 
-**Known gaps:**
-- Sensors report position only, so a sensed track borrows altitude, heading
-  and speed from its aircraft's truth.
-- `vehicle_sim.py` broadcasts the initial great-circle bearing for the whole
-  flight, so the DIS heading drifts from the true track on long routes.
+Heading is the aircraft's current great-circle bearing to its destination,
+re-computed each update (CR-002; before that it was the initial bearing).
+
+**Known gap:** sensors report position only, so a sensed track borrows
+altitude, heading and speed from its aircraft's truth.
+
+## CGF scenarios
+
+Sensors can also act as a small **CGF** (computer-generated forces): a JSON
+scenario file declares entities — any DIS type, any side, waypoints, start/stop
+times, one ownship — and `cgf/runner.py` plays them as DIS in real time, one
+process for all entities. It replaces the airport flights for that run, and
+drives moving-map-display test cases (CR-002).
+
+```bash
+# Terminal 1 — Sensors
+python simulation_manager.py --scenario-file scenarios/ottawa-mixed.json --dis --headless
+# Terminal 2 — moving-map-display, centred on the ownship helicopter
+cargo run -- listen --port 3000 --ownship 1.42.1 --range-nm 25 --seconds 60
+```
+
+`ottawa-mixed.json` flies a friendly utility helicopter (ownship) over Ottawa —
+a 180° reversal, then a 20 s hover — among cars, trucks, buses, a school bus,
+horses, tanks, an AFV, an attack helicopter, a patrol craft and an airliner, on
+all four sides. File format, entity-type catalogue and the motion model:
+[`scenarios/README.md`](scenarios/README.md).
 
 ## Visualization
 
