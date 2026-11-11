@@ -148,7 +148,7 @@ python -m sensors.tacan_sensor --name tacan1 --radar-lat 44.881 --radar-lon -63.
 python -m fusion.fusion_app
 
 # DIS gateway (see "DIS output")
-python -m gateways.dis_gateway --dest 127.0.0.1 --port 3000
+python -m gateways.dis_gateway --dest 127.0.0.1 --port 3800
 
 # Visualization (simulation should already be producing multicast traffic)
 python -m visualization.web_visualizer
@@ -194,8 +194,12 @@ python simulation_manager.py -v 3 --dis --dis-fused --headless
 
 # Terminal 2 — moving-map-display
 cd ~/Projects/moving-map-display
-cargo run -- listen --port 3000 --range-nm 200 --seconds 30
+cargo run -- listen --range-nm 200 --seconds 30
 ```
+
+DIS goes to **UDP port 3800** by default, the same default as moving-map-display
+(Bobby, 2026-11-10; moving-map DD-007), so neither side needs `--port`. Ports
+3801–3809 are kept for private test runs on one machine.
 
 `--dis-dest 192.168.1.255` broadcasts to the LAN instead of `127.0.0.1`;
 `--dis-port` changes the port. The gateway itself also takes `--exercise`,
@@ -251,7 +255,7 @@ drives moving-map-display test cases (CR-002).
 # Terminal 1 — Sensors
 python simulation_manager.py --scenario-file scenarios/ottawa-mixed.json --dis --headless
 # Terminal 2 — moving-map-display, centred on the ownship helicopter
-cargo run -- listen --port 3000 --ownship 1.42.1 --range-nm 25 --seconds 60
+cargo run -- listen --ownship 1.42.1 --range-nm 25 --seconds 60
 ```
 
 `ottawa-mixed.json` flies a friendly utility helicopter (ownship) over Ottawa —

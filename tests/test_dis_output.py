@@ -226,6 +226,19 @@ class SocketOptionTest(unittest.TestCase):
         out.close()
 
 
+class DefaultPortTest(unittest.TestCase):
+    def test_default_port_is_3800(self):
+        parser = argparse.ArgumentParser()
+        add_output_args(parser)
+        self.assertEqual(parser.parse_args([]).port, 3800)
+        manager = argparse.ArgumentParser()
+        add_output_args(manager, prefix='dis-')
+        self.assertEqual(manager.parse_args([]).dis_port, 3800)
+        out = DisOutput()
+        self.assertEqual(out.dest, ('127.0.0.1', 3800))
+        out.close()
+
+
 class ForwardingTest(unittest.TestCase):
     def test_manager_flags_reach_the_runner_unchanged(self):
         manager = argparse.ArgumentParser()
@@ -239,7 +252,7 @@ class ForwardingTest(unittest.TestCase):
         r = runner.parse_args(forwarded)
         self.assertEqual((r.dest, r.iface, r.bundle, r.fault_truncate, r.fault_unknown_types,
                           r.fault_other_exercise, r.record, r.port, r.ttl),
-                         ('239.1.2.3', '10.0.0.5', 4, 0.05, True, 9, 'x.pcap', 3000, 1))
+                         ('239.1.2.3', '10.0.0.5', 4, 0.05, True, 9, 'x.pcap', 3800, 1))
         self.assertEqual(forward_output_args(manager.parse_args([]), prefix='dis-'), [])
 
 

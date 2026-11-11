@@ -34,13 +34,15 @@ from gateways.dis_pdu import (
     split_pdus,
 )
 
+DEFAULT_PORT = 3800        # Bobby, 2026-11-10 (moving-map DD-007); 3801–3809 for private test runs
 MAX_DATAGRAM = 1400       # bytes; keeps bundles inside a 1500-byte Ethernet MTU
 FAULT_SHARE = 0.1         # share of Entity State PDUs hit by --fault-v6 / --fault-other-exercise / --fault-unknown-types
 
 OUTPUT_OPTIONS = (
     ('dest', {'default': '127.0.0.1',
               'help': 'DIS destination: unicast, broadcast (e.g. 192.168.1.255) or multicast group (e.g. 239.1.2.3) (default: 127.0.0.1)'}),
-    ('port', {'type': int, 'default': 3000, 'help': 'DIS UDP port (default: 3000)'}),
+    ('port', {'type': int, 'default': DEFAULT_PORT,
+              'help': f'DIS UDP port (default: {DEFAULT_PORT}; 3801–3809 are for private test runs)'}),
     ('iface', {'default': None, 'help': 'Local interface address for multicast output (IP_MULTICAST_IF)'}),
     ('ttl', {'type': int, 'default': 1, 'help': 'IP TTL for every DIS datagram; 1 keeps DIS on the LAN (default: 1)'}),
     ('bundle', {'type': int, 'default': 1,
@@ -150,7 +152,7 @@ class PcapWriter:
 class DisOutput:
     """Sends PDUs over UDP with optional faults, bundling, recording and multicast."""
 
-    def __init__(self, dest='127.0.0.1', port=3000, iface=None, ttl=1, bundle=1,
+    def __init__(self, dest='127.0.0.1', port=DEFAULT_PORT, iface=None, ttl=1, bundle=1,
                  record=None, record_raw=None, faults=None):
         self.dest = (dest, port)
         self.bundle = max(1, bundle)

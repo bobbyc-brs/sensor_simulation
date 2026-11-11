@@ -5,7 +5,7 @@ STEP_S, sent every update_s while visible, and removed with a Remove Entity PDU
 at its stop_s (unless on_stop is "silent") and on exit (SIGINT/SIGTERM or the
 scenario's duration_s). An entity with restart_s reappears then, same ID.
 
-    python -m cgf.runner scenarios/ottawa-mixed.json [--dest 127.0.0.1 --port 3000]
+    python -m cgf.runner scenarios/ottawa-mixed.json [--dest 127.0.0.1 --port 3800]
 """
 import argparse
 import signal

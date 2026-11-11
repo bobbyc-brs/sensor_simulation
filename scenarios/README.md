@@ -7,7 +7,7 @@ Each `.json` file here is a named, repeatable set of DIS entities that
 
 ```bash
 python simulation_manager.py --scenario-file scenarios/ottawa-mixed.json --dis --headless
-python -m cgf.runner scenarios/ottawa-mixed.json --port 3000        # same, without the manager
+python -m cgf.runner scenarios/ottawa-mixed.json                  # same, without the manager
 ```
 
 | File | Exercises |
